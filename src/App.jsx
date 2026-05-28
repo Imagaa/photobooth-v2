@@ -128,7 +128,6 @@ export default function App() {
   
   const [globalData, setGlobalData] = useState({ hpp_kertas: '', hpp_tinta: '', biaya_ops: '', midtrans_server_key: '', midtrans_client_key: '', app_mode: 'online' });
   const [editingTemplate, setEditingTemplate] = useState(null);
-  const [hwStatus, setHwStatus] = useState(null);
 
   // States - Session Manager
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -141,8 +140,6 @@ export default function App() {
   const [finalResult, setFinalResult] = useState(null);
   const [qrUrl, setQrUrl] = useState(null);
   const [statusText, setStatusText] = useState("");
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const [countdown, setCountdown] = useState(null);
   
   // Timer Sesi & Live Preview Ref
@@ -159,8 +156,8 @@ export default function App() {
   const [availablePrinters, setAvailablePrinters] = useState([]);
   const [availableCameras, setAvailableCameras] = useState([]);
 
-  const capturedPhotosRef = useRef(store.capturedPhotos);
-  const currentScreenRef = useRef(store.currentScreen);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   useEffect(() => { capturedPhotosRef.current = store.capturedPhotos; }, [store.capturedPhotos]);
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 

@@ -16,6 +16,41 @@ const parseRp = (val) => {
 };
 
 // ==========================================
+// VIRTUAL KEYBOARD (TOUCHSCREEN)
+// ==========================================
+function VirtualKeyboard({ value, onChange, onEnter }) {
+  const rows = [
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
+  ];
+
+  const handleKeyPress = (key) => {
+    if (key === 'BACKSPACE') { onChange(value.slice(0, -1)); } 
+    else if (key === 'SPACE') { onChange(value + ' '); } 
+    else { onChange(value + key); }
+  };
+
+  return (
+    <div className="bg-gray-800 p-6 border-4 border-retro-border mt-8 w-full max-w-4xl mx-auto shadow-[8px_8px_0_0_#222] select-none">
+      {rows.map((row, i) => (
+        <div key={i} className="flex justify-center gap-2 mb-3">
+          {row.map(key => (
+            <button key={key} onClick={() => handleKeyPress(key)} className={`bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl p-4 hover:bg-white transition-all ${key === 'BACKSPACE' ? 'px-6 bg-red-200 border-red-400 hover:bg-red-300' : 'w-16 h-16 flex items-center justify-center'}`}>
+              {key === 'BACKSPACE' ? '⌫' : key}
+            </button>
+          ))}
+        </div>
+      ))}
+      <div className="flex justify-center gap-4 mt-2">
+        <button onClick={() => handleKeyPress('SPACE')} className="bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-32 py-4 hover:bg-white">SPACE</button>
+        <button onClick={onEnter} className="bg-green-400 border-b-4 border-green-600 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-12 py-4 hover:bg-green-300">ENTER / LANJUT</button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // VISUAL TEMPLATE EDITOR
 // ==========================================
 function VisualEditor({ template, onSave, onCancel }) {
@@ -80,41 +115,6 @@ function VisualEditor({ template, onSave, onCancel }) {
 }
 
 // ==========================================
-// [BARU] VIRTUAL KEYBOARD (RETRO TOUCHSCREEN)
-// ==========================================
-function VirtualKeyboard({ value, onChange, onEnter }) {
-  const rows = [
-    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
-  ];
-
-  const handleKeyPress = (key) => {
-    if (key === 'BACKSPACE') { onChange(value.slice(0, -1)); } 
-    else if (key === 'SPACE') { onChange(value + ' '); } 
-    else { onChange(value + key); }
-  };
-
-  return (
-    <div className="bg-gray-800 p-6 border-4 border-retro-border mt-8 w-full max-w-4xl mx-auto shadow-[8px_8px_0_0_#222] select-none">
-      {rows.map((row, i) => (
-        <div key={i} className="flex justify-center gap-2 mb-3">
-          {row.map(key => (
-            <button key={key} onClick={() => handleKeyPress(key)} className={`bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl p-4 hover:bg-white transition-all ${key === 'BACKSPACE' ? 'px-6 bg-red-200 border-red-400 hover:bg-red-300' : 'w-16 h-16 flex items-center justify-center'}`}>
-              {key === 'BACKSPACE' ? '⌫' : key}
-            </button>
-          ))}
-        </div>
-      ))}
-      <div className="flex justify-center gap-4 mt-2">
-        <button onClick={() => handleKeyPress('SPACE')} className="bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-32 py-4 hover:bg-white">SPACE</button>
-        <button onClick={onEnter} className="bg-green-400 border-b-4 border-green-600 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-12 py-4 hover:bg-green-300">ENTER / LANJUT</button>
-      </div>
-    </div>
-  );
-}
-
-// ==========================================
 // KOMPONEN UTAMA
 // ==========================================
 export default function App() {
@@ -140,6 +140,8 @@ export default function App() {
   const [finalResult, setFinalResult] = useState(null);
   const [qrUrl, setQrUrl] = useState(null);
   const [statusText, setStatusText] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const [countdown, setCountdown] = useState(null);
   
   // Timer Sesi & Live Preview Ref
@@ -156,16 +158,24 @@ export default function App() {
   const [availablePrinters, setAvailablePrinters] = useState([]);
   const [availableCameras, setAvailableCameras] = useState([]);
 
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const capturedPhotosRef = useRef(store.capturedPhotos);
+  const currentScreenRef = useRef(store.currentScreen);
   useEffect(() => { capturedPhotosRef.current = store.capturedPhotos; }, [store.capturedPhotos]);
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 
   useEffect(() => {
-    store.fetchSettings(); store.fetchTemplates(); store.fetchServerIP(); 
-    store.fetchActiveEvent(); store.fetchRecentEvents();
+    store.fetchSettings(); 
+    store.fetchTemplates(); 
+    store.fetchServerIP(); 
+    store.fetchActiveEvent(); 
     
-    // [BARU] Cek Hardware & Ambil List Device
+    window.electronAPI.getRecentEvents().then(events => {
+      store.fetchRecentEvents(); 
+      if (events && events.length === 0) setShowCreateForm(true); 
+      else setShowCreateForm(false);
+    });
+
+    // Cek Hardware & Ambil List Device
     const initHardware = async () => {
       let msg = "";
       try {
@@ -187,7 +197,7 @@ export default function App() {
     };
     initHardware();
 
-    // [BARU] Listener Remote Cashier
+    // Listener Remote Cashier
     if (window.electronAPI.onRemoteVerify) {
       window.electronAPI.onRemoteVerify(() => {
         if (useStore.getState().waitingForPayment) {
@@ -198,30 +208,18 @@ export default function App() {
           }, 1000);
         }
       });
-      window.electronAPI.onRemoteClose(() => {
-        store.resetCustomerSession();
-        store.setScreen('landing');
-      });
-      window.electronAPI.onRemoteRestart(() => {
-        window.location.reload();
-      });
+      window.electronAPI.onRemoteClose(() => { store.resetCustomerSession(); store.setScreen('landing'); });
+      window.electronAPI.onRemoteRestart(() => { window.location.reload(); });
     }
-
+    
     const handleKeyDown = async (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') { setTemplateOpen(p=>!p); setGlobalOpen(false); setDashboardOpen(false); }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') { 
-        setDashboardOpen(p=>!p); setGlobalOpen(false); setTemplateOpen(false); 
-        fetchDashboardData(); 
-      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') { setDashboardOpen(p=>!p); setGlobalOpen(false); setTemplateOpen(false); fetchDashboardData(); }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
         const ev = await window.electronAPI.getActiveEvent();
         if (ev && confirm(`TUTUP event "${ev.nama_event}" secara permanen?`)) {
-          await window.electronAPI.closeEvent(ev.id);
-          store.fetchActiveEvent(); 
-          store.fetchRecentEvents(); 
-          setShowCreateForm(false); 
-          setDashboardOpen(false);
+          await window.electronAPI.closeEvent(ev.id); store.fetchActiveEvent(); store.fetchRecentEvents(); setShowCreateForm(false); setDashboardOpen(false);
         }
       }
     };
@@ -252,10 +250,7 @@ export default function App() {
 
   const fetchDashboardData = async () => {
     const ev = await window.electronAPI.getActiveEvent();
-    if (ev) {
-      const data = await window.electronAPI.getDashboardData(ev.id);
-      setDashboardData(data);
-    }
+    if (ev) setDashboardData(await window.electronAPI.getDashboardData(ev.id));
   };
 
   useEffect(() => {
@@ -266,19 +261,6 @@ export default function App() {
     return () => { clearInterval(displayInterval); clearTimeout(doomTimer); };
   }, [sessionExpiresAt, customerTemplate]);
 
-  // LISTENER REMOTE CASHIER (DARI HP ADMIN)
-  useEffect(() => {
-    if (!window.electronAPI.onManualVerify) return;
-    window.electronAPI.onManualVerify(() => {
-      // Cek apakah Kiosk sedang benar-benar di layar payment
-      if (currentScreenRef.current === 'payment') {
-        setStatusText("Verifikasi Sukses!");
-        setTimeout(() => { store.setScreen('input_name'); }, 1000);
-      }
-    });
-    return () => { window.electronAPI.offManualVerify(); };
-  }, []);
-
   const handleAutoFinish = async () => {
     const screen = currentScreenRef.current;
     if (screen !== 'camera' && screen !== 'review') return; 
@@ -288,21 +270,11 @@ export default function App() {
 
     const blankImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
     const filledPhotos = capturedPhotosRef.current.map(p => p || blankImage);
-    
     store.setCapturedPhotos(filledPhotos);
     store.setScreen('loading');
 
-    const res = await window.electronAPI.processImages({ 
-      photosBase64: filledPhotos, 
-      templateId: customerTemplate.id, 
-      eventFolder: store.activeEvent.folder_name,
-      eventId: store.activeEvent.id,
-      customerName: customerName,
-      price: customerTemplate.override_price
-    });
-
-    if(res.success) { setFinalResult(res); store.setScreen('result'); } 
-    else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
+    const res = await window.electronAPI.processImages({ photosBase64: filledPhotos, templateId: customerTemplate.id, eventFolder: store.activeEvent.folder_name, eventId: store.activeEvent.id, customerName: customerName, price: customerTemplate.override_price });
+    if(res.success) { setFinalResult(res); store.setScreen('result'); } else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
   };
 
   const saveGlobalSettings = async (e) => { e.preventDefault(); await window.electronAPI.saveSettings(globalData); store.fetchSettings(); alert("Pengaturan Disimpan!"); setGlobalOpen(false); };
@@ -324,7 +296,9 @@ export default function App() {
   };
   const reopenEvent = async (eventId) => { if(confirm("Lanjutkan sesi ini?")) { await window.electronAPI.reopenEvent(eventId); store.fetchActiveEvent(); } };
 
+  // ==========================================
   // CUSTOMER FLOW HANDLERS
+  // ==========================================
   const startCustomerPhoto = async (tpl) => {
     setCustomerTemplate(tpl);
     const slotsArr = typeof tpl.slots === 'string' ? JSON.parse(tpl.slots) : (tpl.slots || []);
@@ -332,12 +306,9 @@ export default function App() {
 
     const folder = await window.electronAPI.startCustomerSession(store.activeEvent.id);
     store.setSessionFolder(folder);
-
-    // [REVISI]: Selalu masuk Input Nama terlebih dahulu!
     store.setScreen('input_name');
   };
 
-  // [BARU]: Dipanggil SETELAH nama diinput di Virtual Keyboard
   const submitNameAndPay = () => {
     if(!customerName) return alert("Nama wajib diisi!");
 
@@ -346,14 +317,12 @@ export default function App() {
     const forceStatic = globalData.force_static_qr === 1;
 
     if (isFree) {
-        executeStartSessionTimer(); // Lanjut kamera
+        executeStartSessionTimer(); 
     } else if (isOffline || forceStatic) {
-        // MODE OFFLINE / STATIS (Tahan di layar Payment)
         store.setupPayment(customerTemplate.override_price, 'camera');
         setQrUrl(`http://localhost:3000/qr/${globalData.static_qr_path}`);
         setStatusText("Menunggu Kasir Memverifikasi...");
     } else {
-        // MODE ONLINE MIDTRANS
         store.setupPayment(customerTemplate.override_price, 'camera');
         initMidtrans(customerTemplate.override_price);
     }
@@ -371,7 +340,6 @@ export default function App() {
             setStatusText("Lunas!"); 
             setTimeout(() => { store.setWaitingForPayment(false); executeStartSessionTimer(); }, 1500); 
         }
-        // Hentikan jika layar pindah (di-cancel/timeout)
         if (useStore.getState().currentScreen !== 'payment') clearInterval(chk);
       }, 3000);
     } else setStatusText("Error Midtrans");
@@ -380,8 +348,6 @@ export default function App() {
   const executeStartSessionTimer = async () => {
     setSessionExpiresAt(Date.now() + 600000); 
     store.setScreen('camera');
-    
-    // [REVISI]: Gunakan Kamera Spesifik dari Dropdown Settings jika diset
     try { 
         const videoConstraints = globalData.selected_camera ? { deviceId: { exact: globalData.selected_camera }, width: 1280, height: 720 } : { width: 1280, height: 720 };
         const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints }); 
@@ -409,18 +375,8 @@ export default function App() {
   const processStitching = async () => {
     setSessionExpiresAt(null); 
     store.setScreen('loading');
-    
-    const res = await window.electronAPI.processImages({ 
-      photosBase64: store.capturedPhotos, 
-      templateId: customerTemplate.id, 
-      eventFolder: store.activeEvent.folder_name,
-      eventId: store.activeEvent.id,
-      customerName: customerName,
-      price: customerTemplate.override_price
-    });
-    
-    if(res.success) { setFinalResult(res); store.setScreen('result'); } 
-    else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
+    const res = await window.electronAPI.processImages({ photosBase64: store.capturedPhotos, templateId: customerTemplate.id, eventFolder: store.activeEvent.folder_name, eventId: store.activeEvent.id, customerName: customerName, price: customerTemplate.override_price });
+    if(res.success) { setFinalResult(res); store.setScreen('result'); } else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
   };
 
   // ==========================================
@@ -432,15 +388,12 @@ export default function App() {
     if (store.currentScreen === 'session_manager') return (
       <div className="flex flex-col items-center justify-center h-screen bg-retro-bg p-8 overflow-hidden">
         <div className="retro-window w-full max-w-5xl bg-white flex flex-col h-[85vh]">
+          
           <div className="retro-header flex justify-between items-center">
             <div className="flex items-center gap-4">
                <span>📅 MANAJEMEN SESI EVENT</span>
-               <button onClick={() => setGlobalOpen(true)} className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 border-2 border-black text-sm shadow-sm" title="Global Settings">
-                  ⚙️ PENGATURAN
-               </button>
+               <button onClick={() => setGlobalOpen(true)} className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 border-2 border-black text-sm shadow-sm" title="Global Settings">⚙️ PENGATURAN</button>
             </div>
-            {/* ================================== */}
-
             {!showCreateForm && <button onClick={()=>setShowCreateForm(true)} className="bg-white text-black px-4 font-bold border-2 border-black hover:bg-yellow-200">BUAT SESI BARU</button>}
           </div>
 
@@ -511,15 +464,10 @@ export default function App() {
           <p className="font-sys text-2xl text-gray-600 tracking-wider">Tap anywhere to start</p>
         </div>
         
-        {/* [REVISI]: Hardware Blocker UI */}
         {(!store.isHardwareReady && globalData.hw_bypass_mode !== 1) ? (
-            <button disabled className="retro-btn-danger px-10 py-6 text-2xl opacity-50 cursor-not-allowed">
-               HARDWARE OFFLINE (TIDAK SIAP)
-            </button>
+            <button disabled className="retro-btn-danger px-10 py-6 text-2xl opacity-50 cursor-not-allowed">HARDWARE OFFLINE (TIDAK SIAP)</button>
         ) : (
-            <button onClick={() => { store.resetCustomerSession(); setCustomerName(''); setSessionExpiresAt(null); store.setScreen('template'); }} className="retro-btn px-10 py-6 text-2xl hover:brightness-110">
-               MULAI SEKARANG
-            </button>
+            <button onClick={() => { store.resetCustomerSession(); setCustomerName(''); setSessionExpiresAt(null); store.setScreen('template'); }} className="retro-btn px-10 py-6 text-2xl hover:brightness-110">MULAI SEKARANG</button>
         )}
       </div>
     );
@@ -545,20 +493,17 @@ export default function App() {
       );
     }
 
-    if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen bg-retro-bg"><div className="retro-window w-[400px] p-6 bg-white text-center"><h2 className="font-pixel text-2xl mb-4">Scan QRIS</h2><div className="font-sys text-5xl font-bold text-retro-success mb-6">Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[280px] h-[280px] mx-auto border-4 border-retro-border flex items-center justify-center bg-gray-100 mb-6">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-2xl font-bold text-red-600">{statusText}</div></div></div>;
-    
     if (store.currentScreen === 'input_name') return (
       <div className="flex flex-col items-center justify-center h-screen bg-retro-bg p-8">
         <div className="retro-window w-full max-w-4xl p-8 bg-white text-center shadow-[8px_8px_0_0_#222]">
           <h2 className="font-pixel text-3xl mb-6">Siapa Nama Kamu?</h2>
-          {/* [REVISI]: Input menjadi ReadOnly, bergantung pada Virtual Keyboard */}
           <input type="text" readOnly className="w-full border-8 border-black p-6 text-center font-sys text-4xl outline-none bg-gray-100" placeholder="Ketik dari keyboard di bawah..." value={customerName} />
-          
-          {/* VIRTUAL KEYBOARD INJECTION */}
           <VirtualKeyboard value={customerName} onChange={setCustomerName} onEnter={submitNameAndPay} />
         </div>
       </div>
     );
+
+    if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen bg-retro-bg"><div className="retro-window w-[400px] p-6 bg-white text-center"><h2 className="font-pixel text-2xl mb-4">Scan QRIS</h2><div className="font-sys text-5xl font-bold text-retro-success mb-6">Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[280px] h-[280px] mx-auto border-4 border-retro-border flex items-center justify-center bg-gray-100 mb-6">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-2xl font-bold text-red-600">{statusText}</div></div></div>;
 
     if (store.currentScreen === 'camera') {
       const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
@@ -571,66 +516,32 @@ export default function App() {
             </div>
           )}
           
-          <h2 className="font-pixel text-3xl text-center mb-4 text-retro-header drop-shadow-md">
-              Gaya ke-{store.capturedPhotos.filter(p => p !== null).length + 1}
-          </h2>
+          <h2 className="font-pixel text-3xl text-center mb-4 text-retro-header drop-shadow-md">Gaya ke-{store.capturedPhotos.filter(p => p !== null).length + 1}</h2>
 
           <div className="flex gap-6 w-full max-w-7xl h-[75vh] items-stretch">
             <div className="w-[70%] retro-window bg-white flex flex-col p-4 relative shadow-[8px_8px_0_0_#333]">
               <div className="relative flex-1 border-4 border-retro-border bg-gray-900 overflow-hidden flex justify-center items-center">
                 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"></video>
-                {countdown && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
-                    <span className="font-pixel text-9xl text-white drop-shadow-[6px_6px_0_rgba(242,109,109,1)]">
-                      {countdown}
-                    </span>
-                  </div>
-                )}
+                {countdown && <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20"><span className="font-pixel text-9xl text-white drop-shadow-[6px_6px_0_rgba(242,109,109,1)]">{countdown}</span></div>}
               </div>
-              <button 
-                onClick={takePhotoAction} 
-                disabled={countdown !== null} 
-                className={`retro-btn w-full py-4 mt-4 text-2xl shrink-0 ${countdown !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                📸 AMBIL FOTO
-              </button>
+              <button onClick={takePhotoAction} disabled={countdown !== null} className={`retro-btn w-full py-4 mt-4 text-2xl shrink-0 ${countdown !== null ? 'opacity-50 cursor-not-allowed' : ''}`}>📸 AMBIL FOTO</button>
             </div>
 
             <div className="w-[30%] retro-window bg-white flex flex-col p-4 shrink-0 shadow-[8px_8px_0_0_#333]">
               <h2 className="font-pixel text-lg text-center mb-4 shrink-0">Preview</h2>
               <div ref={previewContainerRef} className="flex-1 min-h-0 border-4 border-retro-border bg-gray-200 relative overflow-hidden flex justify-center items-center p-2">
                   {customerTemplate && (
-                      <div className="shrink-0" style={{
-                          width: Number(customerTemplate.width),
-                          height: Number(customerTemplate.height),
-                          minWidth: Number(customerTemplate.width),
-                          minHeight: Number(customerTemplate.height),
-                          transform: `scale(${previewScale})`,
-                          transformOrigin: 'center center',
-                          position: 'relative',
-                          backgroundColor: 'transparent'
-                      }}>
+                      <div className="shrink-0" style={{ width: Number(customerTemplate.width), height: Number(customerTemplate.height), minWidth: Number(customerTemplate.width), minHeight: Number(customerTemplate.height), transform: `scale(${previewScale})`, transformOrigin: 'center center', position: 'relative', backgroundColor: 'transparent' }}>
                           {slotsArr.map((slot, i) => (
-                              <div key={i} style={{
-                                  position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height,
-                                  backgroundColor: '#ddd', overflow: 'hidden'
-                              }}>
-                                  {store.capturedPhotos[i] ? (
-                                      <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" alt={`Slot ${i+1}`} />
-                                  ) : (
-                                      <div className="w-full h-full border-2 border-dashed border-gray-400 flex items-center justify-center">
-                                          <span className="font-sys text-gray-500 font-bold">Slot {i+1}</span>
-                                      </div>
-                                  )}
+                              <div key={i} style={{ position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height, backgroundColor: '#ddd', overflow: 'hidden' }}>
+                                  {store.capturedPhotos[i] ? <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" alt={`Slot ${i+1}`} /> : <div className="w-full h-full border-2 border-dashed border-gray-400 flex items-center justify-center"><span className="font-sys text-gray-500 font-bold">Slot {i+1}</span></div>}
                               </div>
                           ))}
                           <img src={`http://localhost:3000/templates/${customerTemplate.filename}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
                       </div>
                   )}
               </div>
-              <div className="font-sys text-center mt-4 text-lg text-gray-600 font-bold bg-yellow-100 border-4 border-black p-3 shadow-[4px_4px_0_0_#333] shrink-0">
-                 Sisa Jepretan: {store.capturedPhotos.filter(p => p === null).length}
-              </div>
+              <div className="font-sys text-center mt-4 text-lg text-gray-600 font-bold bg-yellow-100 border-4 border-black p-3 shadow-[4px_4px_0_0_#333] shrink-0">Sisa Jepretan: {store.capturedPhotos.filter(p => p === null).length}</div>
             </div>
           </div>
           <canvas ref={canvasRef} className="hidden"></canvas>
@@ -638,49 +549,25 @@ export default function App() {
       );
     }
 
-    // =========================================================
-    // [BUG FIXED]: LAYAR REVIEW (ASPECT-VIDEO AGAR ANTI-SCROLL)
-    // =========================================================
     if (store.currentScreen === 'review') {
       const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
-      
-      // Logika grid dinamis berdasarkan jumlah foto agar tidak luber ke bawah
       const photoCount = store.capturedPhotos.length;
       const gridColsClass = photoCount >= 5 ? 'grid-cols-3' : 'grid-cols-2';
 
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-retro-bg space-y-4 relative p-6 overflow-hidden">
-          {sessionExpiresAt && (
-             <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-retro-border z-50 shadow-[4px_4px_0_0_#333]">
-                ⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}
-             </div>
-          )}
-          
+          {sessionExpiresAt && <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-retro-border z-50 shadow-[4px_4px_0_0_#333]">⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}</div>}
           <h1 className="font-pixel text-4xl text-retro-header drop-shadow-md shrink-0">Review Hasil Akhir</h1>
           
           <div className="flex gap-8 w-full max-w-7xl flex-1 min-h-0">
-             {/* KIRI: PREVIEW TEMPLATE FULL */}
              <div className="w-[45%] retro-window bg-white flex flex-col p-4 shrink-0 shadow-[8px_8px_0_0_#333]">
                 <h2 className="font-pixel text-lg text-center mb-4 shrink-0">Photostrip Kamu</h2>
                 <div ref={reviewPreviewContainerRef} className="flex-1 min-h-0 border-4 border-retro-border bg-gray-200 relative overflow-hidden flex justify-center items-center p-2">
                     {customerTemplate && (
-                        <div className="shrink-0" style={{
-                            width: Number(customerTemplate.width),
-                            height: Number(customerTemplate.height),
-                            minWidth: Number(customerTemplate.width),
-                            minHeight: Number(customerTemplate.height),
-                            transform: `scale(${reviewPreviewScale})`,
-                            transformOrigin: 'center center',
-                            position: 'relative'
-                        }}>
+                        <div className="shrink-0" style={{ width: Number(customerTemplate.width), height: Number(customerTemplate.height), minWidth: Number(customerTemplate.width), minHeight: Number(customerTemplate.height), transform: `scale(${reviewPreviewScale})`, transformOrigin: 'center center', position: 'relative' }}>
                             {slotsArr.map((slot, i) => (
-                                <div key={i} style={{
-                                    position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height,
-                                    backgroundColor: '#ddd', overflow: 'hidden'
-                                }}>
-                                    {store.capturedPhotos[i] ? (
-                                        <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" />
-                                    ) : null}
+                                <div key={i} style={{ position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height, backgroundColor: '#ddd', overflow: 'hidden' }}>
+                                    {store.capturedPhotos[i] ? <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" /> : null}
                                 </div>
                             ))}
                             <img src={`http://localhost:3000/templates/${customerTemplate.filename}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
@@ -689,27 +576,13 @@ export default function App() {
                 </div>
              </div>
 
-             {/* KANAN: LIST FOTO & RETAKE DENGAN ASPECT-VIDEO */}
              <div className="flex-1 retro-window bg-white flex flex-col p-4 md:p-6 shadow-[8px_8px_0_0_#333] overflow-y-auto min-h-0">
                 <div className={`grid ${gridColsClass} gap-3 auto-rows-max`}>
                   {store.capturedPhotos.map((photo, i) => (
                     <div key={i} className="border-4 border-retro-border p-2 flex flex-col items-center bg-gray-50">
                       <h3 className="font-pixel text-xs md:text-sm mb-1 md:mb-2">Gaya {i + 1}</h3>
-                      {/* aspect-video menjamin tinggi foto menyesuaikan lebar grid, membuang limit h-150px yang menyebabkan overflow */}
-                      {photo ? (
-                        <img src={photo} className="w-full aspect-video object-cover border-2 border-retro-border scale-x-[-1]" />
-                      ) : (
-                        <div className="w-full aspect-video bg-gray-300 border-2 border-retro-border flex items-center justify-center font-sys text-gray-500 text-xs">Kosong</div>
-                      )}
-                      {timeLeftDisplay > 60 && ( 
-                          <button 
-                            onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} 
-                            disabled={store.retakesLeft <= 0 || !photo} 
-                            className="w-full mt-2 px-2 py-1 md:py-2 font-pixel text-[10px] md:text-xs border-2 border-retro-border bg-gray-200 hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-                          >
-                              🔄 Retake
-                          </button> 
-                      )}
+                      {photo ? <img src={photo} className="w-full aspect-video object-cover border-2 border-retro-border scale-x-[-1]" /> : <div className="w-full aspect-video bg-gray-300 border-2 border-retro-border flex items-center justify-center font-sys text-gray-500 text-xs">Kosong</div>}
+                      {timeLeftDisplay > 60 && <button onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} disabled={store.retakesLeft <= 0 || !photo} className="w-full mt-2 px-2 py-1 md:py-2 font-pixel text-[10px] md:text-xs border-2 border-retro-border bg-gray-200 hover:bg-yellow-100 disabled:opacity-50 transition-colors">🔄 Retake</button>}
                     </div>
                   ))}
                 </div>
@@ -730,11 +603,7 @@ export default function App() {
         
         <div className="flex gap-8 items-stretch w-full max-w-5xl flex-1 min-h-0 pb-4">
           <div className="w-[65%] retro-window bg-white p-4 flex justify-center items-center overflow-hidden relative shadow-[8px_8px_0_0_rgba(0,0,0,0.5)]">
-            <img 
-              src={finalResult?.downloadUrl} 
-              className="max-h-full max-w-full object-contain border-4 border-gray-200 bg-white shadow-lg" 
-              alt="Final Photostrip" 
-            />
+            <img src={finalResult?.downloadUrl} className="max-h-full max-w-full object-contain border-4 border-gray-200 bg-white shadow-lg" alt="Final Photostrip" />
           </div>
 
           <div className="w-[35%] retro-window bg-white p-6 flex flex-col items-center justify-center gap-4 shrink-0 shadow-[8px_8px_0_0_rgba(0,0,0,0.5)] overflow-y-auto">
@@ -742,15 +611,8 @@ export default function App() {
             <div className="border-8 border-retro-border p-3 bg-gray-50 shadow-inner">
               <img src={finalResult?.qrCode} className="w-[180px] h-[180px] lg:w-[220px] lg:h-[220px] object-contain" alt="QR Code" />
             </div>
-            <p className="font-sys text-center text-gray-500 font-bold text-sm lg:text-base mt-2 px-2 leading-tight">
-               File resolusi tinggi tersimpan di server lokal. Segera download sebelum ditutup.
-            </p>
-            <button 
-              onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} 
-              className="retro-btn w-full py-4 mt-auto text-xl shrink-0"
-            >
-              SELESAI
-            </button>
+            <p className="font-sys text-center text-gray-500 font-bold text-sm lg:text-base mt-2 px-2 leading-tight">File resolusi tinggi tersimpan di server lokal. Segera download sebelum ditutup.</p>
+            <button onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} className="retro-btn w-full py-4 mt-auto text-xl shrink-0">SELESAI</button>
           </div>
         </div>
       </div>
@@ -762,7 +624,6 @@ export default function App() {
   return (
     <div className="w-screen h-screen overflow-hidden relative">
       
-      {/* [BARU]: TOAST NOTIFICATION HARDWARE */}
       {hwStatus && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-yellow-200 text-black px-8 py-4 border-4 border-black font-sys font-bold z-[200] shadow-[4px_4px_0_0_#000] animate-bounce text-xl text-center whitespace-pre-wrap">
             {hwStatus}
@@ -780,8 +641,6 @@ export default function App() {
             <div className="retro-header bg-green-700">LIVE DASHBOARD - {store.activeEvent?.nama_event} <button onClick={()=>setDashboardOpen(false)}>X</button></div>
             
             <div className="p-6 flex flex-col gap-6 overflow-y-auto">
-              
-              {/* [BARU] INFO PENYIMPANAN & REMOTE KASIR */}
               <div className="flex gap-4">
                 <div className="flex-1 bg-white border-4 border-retro-border p-4 shadow-[4px_4px_0_0_#222] flex flex-col gap-2">
                   <h3 className="font-pixel text-lg text-retro-header">Akses Penyimpanan</h3>
@@ -801,54 +660,27 @@ export default function App() {
 
                 <div className="bg-white border-4 border-retro-border p-4 shadow-[4px_4px_0_0_#222] flex flex-col items-center justify-center shrink-0 w-[220px]">
                   <h3 className="font-pixel text-sm mb-2 text-center text-green-700">Remote Cashier</h3>
-                  {dashboardData?.adminQr ? (
-                     <img src={dashboardData.adminQr} className="w-[120px] h-[120px] border-4 border-gray-200" alt="Admin QR" />
-                  ) : ( <div className="w-[120px] h-[120px] border-4 flex items-center justify-center">⏳</div> )}
+                  {dashboardData?.adminQr ? <img src={dashboardData.adminQr} className="w-[120px] h-[120px] border-4 border-gray-200" alt="Admin QR" /> : <div className="w-[120px] h-[120px] border-4 flex items-center justify-center">⏳</div>}
                   <p className="font-sys text-[10px] text-gray-500 mt-2 text-center leading-tight">Scan via HP Admin</p>
                 </div>
               </div>
 
-              {/* Top Stats Cards */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="bg-white border-4 border-retro-border p-4 text-center">
-                  <p className="font-sys text-gray-500">Deposit Awal</p>
-                  <p className="font-pixel text-xl text-blue-600">Rp {formatRp(dashboardData?.stats?.saldo_awal)}</p>
-                </div>
-                {/* ... (Pertahankan card statistik dan tabel riwayat sama seperti sebelumnya) ... */}
-                <div className="bg-white border-4 border-retro-border p-4 text-center">
-                  <p className="font-sys text-gray-500">Total Transaksi</p>
-                  <p className="font-pixel text-xl text-black">{dashboardData?.stats?.total_trx || 0} Lembar</p>
-                </div>
-                <div className="bg-white border-4 border-retro-border p-4 text-center">
-                  <p className="font-sys text-gray-500">Beban HPP</p>
-                  <p className="font-pixel text-xl text-red-600">Rp {formatRp(dashboardData?.stats?.total_beban_hpp)}</p>
-                </div>
-                <div className="bg-white border-4 border-retro-border p-4 text-center shadow-[4px_4px_0_0_#222]">
-                  <p className="font-sys font-bold">Laba Bersih</p>
-                  <p className={`font-pixel text-2xl ${dashboardData?.stats?.sisa_saldo < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    Rp {formatRp(dashboardData?.stats?.sisa_saldo)}
-                  </p>
-                </div>
+                <div className="bg-white border-4 border-retro-border p-4 text-center"><p className="font-sys text-gray-500">Saldo/Deposit Awal</p><p className="font-pixel text-xl text-blue-600">Rp {formatRp(dashboardData?.stats?.saldo_awal)}</p></div>
+                <div className="bg-white border-4 border-retro-border p-4 text-center"><p className="font-sys text-gray-500">Total Transaksi</p><p className="font-pixel text-xl text-black">{dashboardData?.stats?.total_trx || 0} Lembar</p></div>
+                <div className="bg-white border-4 border-retro-border p-4 text-center"><p className="font-sys text-gray-500">Beban HPP (Kertas+Tinta)</p><p className="font-pixel text-xl text-red-600">Rp {formatRp(dashboardData?.stats?.total_beban_hpp)}</p></div>
+                <div className="bg-white border-4 border-retro-border p-4 text-center shadow-[4px_4px_0_0_#222]"><p className="font-sys font-bold">Saldo / Laba Bersih</p><p className={`font-pixel text-2xl ${dashboardData?.stats?.sisa_saldo < 0 ? 'text-red-600' : 'text-green-600'}`}>Rp {formatRp(dashboardData?.stats?.sisa_saldo)}</p></div>
               </div>
 
-              {/* Tabel Riwayat Sesi */}
               <div className="bg-white border-4 border-retro-border flex-1 flex flex-col">
-                <div className="bg-gray-200 border-b-4 border-retro-border p-2 font-pixel text-sm flex">
-                  <div className="w-[150px]">WAKTU</div><div className="flex-1">NAMA PELANGGAN</div><div className="w-[150px]">STATUS</div><div className="w-[150px]">HARGA</div>
-                </div>
+                <div className="bg-gray-200 border-b-4 border-retro-border p-2 font-pixel text-sm flex"><div className="w-[150px]">WAKTU</div><div className="flex-1">NAMA PELANGGAN</div><div className="w-[150px]">STATUS</div><div className="w-[150px]">HARGA</div></div>
                 <div className="overflow-y-auto font-sys text-lg min-h-[200px]">
                   {dashboardData?.sessions?.length === 0 && <p className="p-4 text-center text-gray-500">Belum ada transaksi.</p>}
                   {dashboardData?.sessions?.map((s, i) => (
-                    <div key={i} className="flex p-2 border-b-2 border-gray-100 hover:bg-yellow-50">
-                      <div className="w-[150px] text-sm text-gray-500">{s.waktu}</div>
-                      <div className="flex-1 font-bold">{s.customer_name}</div>
-                      <div className="w-[150px] text-green-600">{s.status_cetak}</div>
-                      <div className="w-[150px]">Rp {formatRp(s.harga_jual)}</div>
-                    </div>
+                    <div key={i} className="flex p-2 border-b-2 border-gray-100 hover:bg-yellow-50"><div className="w-[150px] text-sm text-gray-500">{s.waktu}</div><div className="flex-1 font-bold">{s.customer_name}</div><div className="w-[150px] text-green-600">{s.status_cetak}</div><div className="w-[150px]">Rp {formatRp(s.harga_jual)}</div></div>
                   ))}
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -874,7 +706,7 @@ export default function App() {
                 <div className="flex flex-col"><label className="font-bold">HPP Tinta (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.hpp_tinta)} onChange={e=>setGlobalData({...globalData, hpp_tinta: parseRp(e.target.value)})} /></div>
                 <div className="flex flex-col"><label className="font-bold">Biaya Ops (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.biaya_ops)} onChange={e=>setGlobalData({...globalData, biaya_ops: parseRp(e.target.value)})} /></div>
               </div>
-              {/* [REVISI]: Pengaturan Midtrans, QR Statis, dan Hardware */}
+              
               <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 border-4 border-retro-border">
                   <div className="flex flex-col gap-2">
                       <label className="font-bold text-sm">Midtrans Server Key:</label>
@@ -896,13 +728,13 @@ export default function App() {
                          {availablePrinters.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                       </select>
                       
-                      <label className="font-bold flex items-center gap-2 text-sm text-red-800 mt-2 p-2 bg-red-100 border-2 border-red-300">
+                      <label className="font-bold flex items-center gap-2 text-sm text-red-800 mt-2 p-2 bg-red-100 border-2 border-red-300 cursor-pointer">
                           <input type="checkbox" className="w-5 h-5" checked={globalData.hw_bypass_mode === 1} onChange={e=>setGlobalData({...globalData, hw_bypass_mode: e.target.checked ? 1 : 0})} /> 
                           Troubleshooting / Bypass Hardware Blocker
                       </label>
                   </div>
                   <div className="flex flex-col gap-2 border-l-4 border-retro-border pl-6">
-                      <label className="font-bold flex items-center gap-2 text-sm text-blue-800 bg-blue-50 p-2 border-2 border-blue-200">
+                      <label className="font-bold flex items-center gap-2 text-sm text-blue-800 bg-blue-50 p-2 border-2 border-blue-200 cursor-pointer">
                           <input type="checkbox" className="w-5 h-5 shrink-0" checked={globalData.force_static_qr === 1} onChange={e=>setGlobalData({...globalData, force_static_qr: e.target.checked ? 1 : 0})} /> 
                           Paksa Gunakan QR Statis (Bypass Midtrans)
                       </label>

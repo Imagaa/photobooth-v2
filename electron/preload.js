@@ -6,7 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // --- GLOBAL SETTINGS ---
     getSettings: () => ipcRenderer.invoke('get-settings'),
     saveSettings: (data) => ipcRenderer.invoke('save-settings', data),
-    getServerIP: () => ipcRenderer.invoke('get-server-ip'), 
+    getServerIP: () => ipcRenderer.invoke('get-server-ip'),
+    checkHardware: () => ipcRenderer.invoke('check-hardware'),
+    selectStaticQR: () => ipcRenderer.invoke('select-static-qr'),
     
     // --- EVENT SESSION MANAGEMENT ---
     getActiveEvent: () => ipcRenderer.invoke('get-active-event'),
@@ -15,7 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createEvent: (data) => ipcRenderer.invoke('create-event', data),
     closeEvent: (eventId) => ipcRenderer.invoke('close-event', eventId),
 
-    // [BARU]: Menarik data untuk Dashboard Kasir (Ctrl+Shift+D)
+    // --- Menarik data untuk Dashboard Kasir (Ctrl+Shift+D) ---
     getDashboardData: (eventId) => ipcRenderer.invoke('get-dashboard-data', eventId),
 
     // --- MASTER TEMPLATES ---
@@ -32,5 +34,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // --- PEMBAYARAN MIDTRANS ---
     createQris: (amount) => ipcRenderer.invoke('create-qris', amount),
-    checkPayment: (orderId) => ipcRenderer.invoke('check-payment', orderId)
+    checkPayment: (orderId) => ipcRenderer.invoke('check-payment', orderId),
+
+    // --- Listener untuk Remote Kasir (HP Admin)
+    onManualVerify: (callback) => ipcRenderer.on('manual-verify-trigger', () => callback()),
+    offManualVerify: () => ipcRenderer.removeAllListeners('manual-verify-trigger'),
 });

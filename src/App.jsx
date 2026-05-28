@@ -93,6 +93,7 @@ export default function App() {
   
   const [globalData, setGlobalData] = useState({ hpp_kertas: '', hpp_tinta: '', biaya_ops: '', midtrans_server_key: '', midtrans_client_key: '', app_mode: 'online' });
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [hwStatus, setHwStatus] = useState(null);
 
   // States - Session Manager
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -131,13 +132,26 @@ export default function App() {
     
     window.electronAPI.getRecentEvents().then(events => {
       store.fetchRecentEvents(); 
-      if (events && events.length === 0) {
-        setShowCreateForm(true);
-      } else {
-        setShowCreateForm(false);
-      }
+      if (events && events.length === 0) { setShowCreateForm(true); } 
+      else { setShowCreateForm(false); }
     });
     
+    // ===> TAMBAHKAN BLOK INI <===
+    const verifyHardware = async () => {
+      let msg = "";
+      try {
+        const hw = await window.electronAPI.checkHardware();
+        msg += hw.printers?.length > 0 ? `🖨️ ${hw.printers.length} Printer OK. ` : `❌ Printer Tidak Terdeteksi. `;
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        msg += camStream ? `📷 Kamera OK.` : `❌ Kamera Error.`;
+        if(camStream) camStream.getTracks().forEach(t => t.stop());
+      } catch(e) { msg += `❌ Kamera Tidak Ditemukan.`; }
+      setHwStatus(msg);
+      setTimeout(() => setHwStatus(null), 6000); // Pudar dalam 6 detik
+    };
+    verifyHardware();
+    // ===========================
+
     const handleKeyDown = async (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') { setTemplateOpen(p=>!p); setGlobalOpen(false); setDashboardOpen(false); }
@@ -197,6 +211,19 @@ export default function App() {
     return () => { clearInterval(displayInterval); clearTimeout(doomTimer); };
   }, [sessionExpiresAt, customerTemplate]);
 
+  // LISTENER REMOTE CASHIER (DARI HP ADMIN)
+  useEffect(() => {
+    if (!window.electronAPI.onManualVerify) return;
+    window.electronAPI.onManualVerify(() => {
+      // Cek apakah Kiosk sedang benar-benar di layar payment
+      if (currentScreenRef.current === 'payment') {
+        setStatusText("Verifikasi Sukses!");
+        setTimeout(() => { store.setScreen('input_name'); }, 1000);
+      }
+    });
+    return () => { window.electronAPI.offManualVerify(); };
+  }, []);
+
   const handleAutoFinish = async () => {
     const screen = currentScreenRef.current;
     if (screen !== 'camera' && screen !== 'review') return; 
@@ -250,8 +277,23 @@ export default function App() {
     const folder = await window.electronAPI.startCustomerSession(store.activeEvent.id);
     store.setSessionFolder(folder);
 
-    if (store.settings?.app_mode === 'offline' || tpl.override_price <= 0) { store.setScreen('input_name'); } 
-    else { store.setupPayment(tpl.override_price, 'input_name'); initMidtrans(tpl.override_price); }
+    // KONDISIONAL PAYMENT BARU
+    const isFree = tpl.override_price <= 0;
+    const isOffline = globalData.app_mode === 'offline';
+    const forceStatic = globalData.force_static_qr === 1;
+
+    if (isFree) {
+      store.setScreen('input_name');
+    } else if (isOffline || forceStatic) {
+      // MODE STATIS (VERIFIKASI MANUAL)
+      store.setupPayment(tpl.override_price, 'input_name');
+      setQrUrl(`http://localhost:3000/qr/${globalData.static_qr_path}`);
+      setStatusText("Menunggu Kasir...");
+    } else {
+      // MODE MIDTRANS (AUTO POLLING)
+      store.setupPayment(tpl.override_price, 'input_name');
+      initMidtrans(tpl.override_price);
+    }
   };
 
   const initMidtrans = async (amount) => {
@@ -318,7 +360,14 @@ export default function App() {
       <div className="flex flex-col items-center justify-center h-screen bg-retro-bg p-8 overflow-hidden">
         <div className="retro-window w-full max-w-5xl bg-white flex flex-col h-[85vh]">
           <div className="retro-header flex justify-between items-center">
-            <span>📅 MANAJEMEN SESI EVENT</span>
+            <div className="flex items-center gap-4">
+               <span>📅 MANAJEMEN SESI EVENT</span>
+               <button onClick={() => setGlobalOpen(true)} className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 border-2 border-black text-sm shadow-sm" title="Global Settings">
+                  ⚙️ PENGATURAN
+               </button>
+            </div>
+            {/* ================================== */}
+
             {!showCreateForm && <button onClick={()=>setShowCreateForm(true)} className="bg-white text-black px-4 font-bold border-2 border-black hover:bg-yellow-200">BUAT SESI BARU</button>}
           </div>
 
@@ -626,6 +675,15 @@ export default function App() {
 
   return (
     <div className="w-screen h-screen overflow-hidden relative">
+      
+      {/* ===> TAMBAHKAN TOAST INI <=== */}
+      {hwStatus && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-200 text-black px-8 py-3 border-4 border-black font-sys font-bold z-[200] shadow-[4px_4px_0_0_#000] animate-bounce">
+            {hwStatus}
+        </div>
+      )}
+      {/* ============================ */}
+
       {renderScreen()}
 
       {/* ==========================================
@@ -637,32 +695,61 @@ export default function App() {
             <div className="retro-header bg-green-700">LIVE DASHBOARD - {store.activeEvent?.nama_event} <button onClick={()=>setDashboardOpen(false)}>X</button></div>
             
             <div className="p-6 flex flex-col gap-6 overflow-y-auto">
+              
+              {/* [BARU] INFO PENYIMPANAN & REMOTE KASIR */}
+              <div className="flex gap-4">
+                <div className="flex-1 bg-white border-4 border-retro-border p-4 shadow-[4px_4px_0_0_#222] flex flex-col gap-2">
+                  <h3 className="font-pixel text-lg text-retro-header">Akses Penyimpanan</h3>
+                  <div className="font-sys text-sm mt-2 flex flex-col gap-3">
+                    <div>
+                      <p className="font-bold">📁 Direktori Lokal (Backup):</p>
+                      <p className="text-gray-600 bg-gray-100 p-2 border-2 border-gray-300 select-all">{dashboardData?.localPath}</p>
+                    </div>
+                    {globalData.app_mode === 'online' && (
+                    <div>
+                      <p className="font-bold">☁️ Google Drive:</p>
+                      <p className="text-blue-600 bg-blue-50 p-2 border-2 border-blue-200 select-all break-all">{dashboardData?.gdriveLink}</p>
+                    </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white border-4 border-retro-border p-4 shadow-[4px_4px_0_0_#222] flex flex-col items-center justify-center shrink-0 w-[220px]">
+                  <h3 className="font-pixel text-sm mb-2 text-center text-green-700">Remote Cashier</h3>
+                  <img src={dashboardData?.adminQr} className="w-[120px] h-[120px] border-4 border-gray-200" alt="Admin QR" />
+                  <p className="font-sys text-[10px] text-gray-500 mt-2 text-center leading-tight">Scan via HP Admin untuk<br/>verifikasi pembayaran statis.</p>
+                </div>
+              </div>
+
+              {/* Top Stats Cards */}
               <div className="grid grid-cols-4 gap-4">
                 <div className="bg-white border-4 border-retro-border p-4 text-center">
-                  <p className="font-sys text-gray-500">Saldo/Deposit Awal</p>
+                  <p className="font-sys text-gray-500">Deposit Awal</p>
                   <p className="font-pixel text-xl text-blue-600">Rp {formatRp(dashboardData?.stats?.saldo_awal)}</p>
                 </div>
+                {/* ... (Pertahankan card statistik dan tabel riwayat sama seperti sebelumnya) ... */}
                 <div className="bg-white border-4 border-retro-border p-4 text-center">
                   <p className="font-sys text-gray-500">Total Transaksi</p>
                   <p className="font-pixel text-xl text-black">{dashboardData?.stats?.total_trx || 0} Lembar</p>
                 </div>
                 <div className="bg-white border-4 border-retro-border p-4 text-center">
-                  <p className="font-sys text-gray-500">Beban HPP (Kertas+Tinta)</p>
+                  <p className="font-sys text-gray-500">Beban HPP</p>
                   <p className="font-pixel text-xl text-red-600">Rp {formatRp(dashboardData?.stats?.total_beban_hpp)}</p>
                 </div>
                 <div className="bg-white border-4 border-retro-border p-4 text-center shadow-[4px_4px_0_0_#222]">
-                  <p className="font-sys font-bold">Saldo / Laba Bersih</p>
+                  <p className="font-sys font-bold">Laba Bersih</p>
                   <p className={`font-pixel text-2xl ${dashboardData?.stats?.sisa_saldo < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     Rp {formatRp(dashboardData?.stats?.sisa_saldo)}
                   </p>
                 </div>
               </div>
 
+              {/* Tabel Riwayat Sesi */}
               <div className="bg-white border-4 border-retro-border flex-1 flex flex-col">
                 <div className="bg-gray-200 border-b-4 border-retro-border p-2 font-pixel text-sm flex">
                   <div className="w-[150px]">WAKTU</div><div className="flex-1">NAMA PELANGGAN</div><div className="w-[150px]">STATUS</div><div className="w-[150px]">HARGA</div>
                 </div>
-                <div className="overflow-y-auto font-sys text-lg">
+                <div className="overflow-y-auto font-sys text-lg min-h-[200px]">
                   {dashboardData?.sessions?.length === 0 && <p className="p-4 text-center text-gray-500">Belum ada transaksi.</p>}
                   {dashboardData?.sessions?.map((s, i) => (
                     <div key={i} className="flex p-2 border-b-2 border-gray-100 hover:bg-yellow-50">
@@ -674,6 +761,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
         </div>
@@ -699,9 +787,24 @@ export default function App() {
                 <div className="flex flex-col"><label className="font-bold">HPP Tinta (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.hpp_tinta)} onChange={e=>setGlobalData({...globalData, hpp_tinta: parseRp(e.target.value)})} /></div>
                 <div className="flex flex-col"><label className="font-bold">Biaya Ops (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.biaya_ops)} onChange={e=>setGlobalData({...globalData, biaya_ops: parseRp(e.target.value)})} /></div>
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="font-bold">Midtrans Server Key (Global):</label><input type="text" className="border-4 p-2 outline-none" value={globalData.midtrans_server_key} onChange={e=>setGlobalData({...globalData, midtrans_server_key: e.target.value})} />
-                <label className="font-bold">Midtrans Client Key (Global):</label><input type="text" className="border-4 p-2 outline-none" value={globalData.midtrans_client_key} onChange={e=>setGlobalData({...globalData, midtrans_client_key: e.target.value})} />
+              <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 border-4 border-retro-border">
+                  <div className="flex flex-col gap-2">
+                      <label className="font-bold text-sm">Midtrans Server Key:</label>
+                      <input type="text" className="border-4 p-2 outline-none text-sm" value={globalData.midtrans_server_key} onChange={e=>setGlobalData({...globalData, midtrans_server_key: e.target.value})} />
+                      <label className="font-bold text-sm mt-2">Midtrans Client Key:</label>
+                      <input type="text" className="border-4 p-2 outline-none text-sm" value={globalData.midtrans_client_key} onChange={e=>setGlobalData({...globalData, midtrans_client_key: e.target.value})} />
+                  </div>
+                  <div className="flex flex-col gap-2 border-l-4 border-retro-border pl-6">
+                      <label className="font-bold flex items-center gap-2 text-sm text-blue-800">
+                          <input type="checkbox" className="w-5 h-5" checked={globalData.force_static_qr === 1} onChange={e=>setGlobalData({...globalData, force_static_qr: e.target.checked ? 1 : 0})} /> 
+                          Paksa Gunakan QR Statis (Bypass Midtrans)
+                      </label>
+                      <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="retro-btn py-2 text-xs mt-1">UPLOAD GAMBAR QR</button>
+                      {globalData.static_qr_path && <p className="text-[10px] text-green-700 truncate w-[250px]">✓ {globalData.static_qr_path}</p>}
+                      
+                      <label className="font-bold mt-4 text-sm">ID Folder Google Drive (Induk):</label>
+                      <input type="text" className="border-4 p-2 outline-none text-sm" placeholder="Paste ID Folder..." value={globalData.gdrive_folder_id} onChange={e=>setGlobalData({...globalData, gdrive_folder_id: e.target.value})} />
+                  </div>
               </div>
               <button type="submit" className="retro-btn py-4 bg-retro-success mt-4">SIMPAN PENGATURAN MESIN</button>
             </form>

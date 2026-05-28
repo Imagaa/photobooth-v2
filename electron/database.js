@@ -76,5 +76,7 @@ try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
 
 module.exports = db;

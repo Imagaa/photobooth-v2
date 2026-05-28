@@ -25,6 +25,10 @@ const expressApp = express();
 const PORT = 3000;
 let serverIP = 'localhost';
 
+// Buat folder khusus QR Statis agar aman diakses Express
+const STATIC_QR_PATH = path.join(app.getPath('userData'), 'static_qr');
+if (!fs.existsSync(STATIC_QR_PATH)) fs.mkdirSync(STATIC_QR_PATH, { recursive: true });
+
 function getLocalIP() {
     const nets = os.networkInterfaces();
     for (const name of Object.keys(nets)) {
@@ -48,9 +52,33 @@ app.whenReady().then(() => {
 
     expressApp.use('/download', express.static(OUTPUT_PATH));
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
+    expressApp.use('/qr', express.static(STATIC_QR_PATH)); // [BARU] Akses gambar QR statis
 
-    expressApp.get('/', (req, res) => {
-        res.send(`<h1>Dashboard Kasir Photobooth</h1><p>Sistem Berjalan Normal</p>`);
+    // [BARU] Halaman Remote Kasir untuk HP Admin
+    expressApp.get('/admin', (req, res) => {
+        res.send(`
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>SayGumi! Cashier Hub</title>
+            </head>
+            <body style="font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4;">
+                <h2>SayGumi! Remote Cashier</h2>
+                <p style="color: #666;">Tekan tombol di bawah HANYA JIKA pelanggan sudah transfer ke QRIS Statis.</p>
+                <br/>
+                <button onclick="fetch('/api/verify').then(()=>alert('Pelanggan berhasil diloloskan ke kamera!'))" 
+                        style="padding: 20px; font-size: 18px; font-weight: bold; background: #4CAF50; color: white; border: none; border-radius: 8px; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    ✅ VERIFIKASI PEMBAYARAN
+                </button>
+            </body>
+            </html>
+        `);
+    });
+
+    // Endpoint yang ditembak oleh tombol di HP Admin
+    expressApp.get('/api/verify', (req, res) => {
+        if(mainWindow) mainWindow.webContents.send('manual-verify-trigger');
+        res.json({ success: true });
     });
 
     expressApp.listen(PORT, '0.0.0.0', () => console.log(`[LOCAL SERVER] Menyala di http://${serverIP}:${PORT}`));
@@ -64,7 +92,11 @@ app.whenReady().then(() => {
 let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1280, height: 720, fullscreen: false,
+        width: 1280, height: 720, 
+        fullscreen: true,       // Memaksa layar penuh menutupi taskbar
+        autoHideMenuBar: true,  // Menyembunyikan menu File, Edit, View
+        frame: false,           // Menghapus border dan tombol [X] Windows
+        kiosk: true,            // Mengunci mode Kiosk
         webPreferences: { 
             nodeIntegration: false, 
             contextIsolation: true, 
@@ -74,7 +106,6 @@ function createWindow() {
     
     if (process.env.NODE_ENV === 'development') { 
         mainWindow.loadURL('http://localhost:5173'); 
-        mainWindow.webContents.openDevTools(); 
     } else { 
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html')); 
     }
@@ -251,23 +282,30 @@ ipcMain.handle('process-images', async (event, { photosBase64, templateId, event
 });
 
 // ==========================================
-// 8. IPC HANDLERS: DASHBOARD P&L
+// 8. IPC HANDLERS: DASHBOARD P&L & FILE INFO
 // ==========================================
-ipcMain.handle('get-dashboard-data', (event, eventId) => {
+ipcMain.handle('get-dashboard-data', async (event, eventId) => {
     const sessions = db.prepare('SELECT * FROM sessions WHERE event_id = ? ORDER BY id DESC').all(eventId);
     const ev = db.prepare('SELECT * FROM events WHERE id=?').get(eventId);
     const settings = db.prepare('SELECT * FROM settings WHERE id=1').get();
     
     const hpp_total = (settings.hpp_kertas || 0) + (settings.hpp_tinta || 0) + (settings.biaya_ops || 0);
     let total_revenue = 0;
-    
     sessions.forEach(s => { total_revenue += (s.harga_jual || 0); });
     
     const total_beban_hpp = sessions.length * hpp_total;
     const saldo_awal = ev?.saldo_awal || 0;
     
+    // Generate Info Direktori & QR Admin
+    const localPath = path.join(OUTPUT_PATH, ev?.folder_name || '');
+    const adminUrl = `http://${serverIP}:${PORT}/admin`;
+    const adminQr = await qrcode.toDataURL(adminUrl);
+
     return {
         sessions,
+        localPath,
+        adminQr,
+        gdriveLink: settings.gdrive_folder_id ? `Folder ID: ${settings.gdrive_folder_id}` : 'Belum disetting di Global Settings',
         stats: {
             total_trx: sessions.length,
             total_revenue,
@@ -306,4 +344,28 @@ ipcMain.handle('check-payment', async (e, oid) => {
     } catch (e) { 
         return { success: false, error: e.message }; 
     }
+});
+
+// ==========================================
+// 10. IPC HANDLERS: HARDWARE & STATIC FILES
+// ==========================================
+ipcMain.handle('check-hardware', async () => {
+    try {
+        const printers = await mainWindow.webContents.getPrintersAsync();
+        return { success: true, printers: printers };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('select-static-qr', async () => {
+    const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }] });
+    if (res.canceled) return null;
+    
+    const filename = `qr-statis-${Date.now()}${path.extname(res.filePaths[0])}`;
+    // Simpan ke folder yang di-expose Express
+    const newPath = path.join(app.getPath('userData'), 'static_qr', filename);
+    fs.copyFileSync(res.filePaths[0], newPath);
+    
+    return filename; // Hanya return nama filenya saja
 });

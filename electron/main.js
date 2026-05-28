@@ -361,31 +361,8 @@ ipcMain.handle('select-static-qr', async () => {
     if (res.canceled) return null;
     
     const filename = `qr-statis-${Date.now()}${path.extname(res.filePaths[0])}`;
-    // Simpan ke folder yang di-expose Express
     const newPath = path.join(app.getPath('userData'), 'static_qr', filename);
     fs.copyFileSync(res.filePaths[0], newPath);
     
-    return filename; // Hanya return nama filenya saja
-});
-
-// IPC HANDLERS: HARDWARE & STATIC FILES
-ipcMain.handle('check-hardware', async () => {
-    try {
-        const printers = await mainWindow.webContents.getPrintersAsync();
-        return { success: true, printers: printers };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
-
-ipcMain.handle('select-static-qr', async () => {
-    const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }] });
-    if (res.canceled) return null;
-    
-    // Copy gambar ke brankas sistem Kiosk agar anti-hilang
-    const filename = `qr-statis-${Date.now()}${path.extname(res.filePaths[0])}`;
-    const newPath = path.join(app.getPath('userData'), 'static_qr', filename);
-    fs.copyFileSync(res.filePaths[0], newPath);
-    
-    return filename; // Hanya simpan namanya saja di database
+    return filename; 
 });

@@ -145,19 +145,19 @@ export default function App() {
   const canvasRef = useRef(null);
   const [countdown, setCountdown] = useState(null);
   
-  // Timer Sesi
+  // Timer Sesi & Live Preview Ref
   const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
   const [timeLeftDisplay, setTimeLeftDisplay] = useState(0);
-
-  // [BARU] Hardware & Kasir State
-  const [hwStatus, setHwStatus] = useState(null);
-  const [availablePrinters, setAvailablePrinters] = useState([]);
-  const [availableCameras, setAvailableCameras] = useState([]);
   
   const previewContainerRef = useRef(null);
   const [previewScale, setPreviewScale] = useState(1);
   const reviewPreviewContainerRef = useRef(null);
   const [reviewPreviewScale, setReviewPreviewScale] = useState(1);
+
+  // [BARU] Hardware & Kasir State
+  const [hwStatus, setHwStatus] = useState(null);
+  const [availablePrinters, setAvailablePrinters] = useState([]);
+  const [availableCameras, setAvailableCameras] = useState([]);
 
   const capturedPhotosRef = useRef(store.capturedPhotos);
   const currentScreenRef = useRef(store.currentScreen);

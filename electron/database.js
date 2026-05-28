@@ -57,7 +57,7 @@ db.exec(`
     );
 `);
 
-// Seeder Awal untuk Settings
+// Seeder Awal untuk Settings (Hanya 1 baris ID=1 yang akan ada selamanya)
 const stmt = db.prepare('SELECT COUNT(*) as count FROM settings');
 if (stmt.get().count === 0) {
     db.prepare(`
@@ -67,16 +67,17 @@ if (stmt.get().count === 0) {
 }
 
 // ==========================================
-// FORCE MIGRATION (MENGOBATI ERROR "NO COLUMN")
+// FORCE MIGRATION (MENAMBAH KOLOM BARU TANPA HAPUS DB LAMA)
 // ==========================================
-// Memaksa penambahan kolom jika database lama masih menggunakan skema lama
 try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT DEFAULT ''"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
+
+// Penambahan Kolom Fitur Baru (Fase 3 & 4)
+try { db.exec("ALTER TABLE settings ADD COLUMN static_qr_path TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE settings ADD COLUMN force_static_qr INTEGER DEFAULT 0"); } catch(e) {}
+try { db.exec("ALTER TABLE settings ADD COLUMN gdrive_folder_id TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE settings ADD COLUMN selected_camera TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE settings ADD COLUMN selected_printer TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE settings ADD COLUMN hw_bypass_mode INTEGER DEFAULT 0"); } catch(e) {}
 
 module.exports = db;

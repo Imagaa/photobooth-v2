@@ -6,9 +6,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // --- GLOBAL SETTINGS ---
     getSettings: () => ipcRenderer.invoke('get-settings'),
     saveSettings: (data) => ipcRenderer.invoke('save-settings', data),
-    getServerIP: () => ipcRenderer.invoke('get-server-ip'),
+    getServerIP: () => ipcRenderer.invoke('get-server-ip'), 
+    
+    // [BARU] Hardware, File Picker, & Listener HP Admin
     checkHardware: () => ipcRenderer.invoke('check-hardware'),
     selectStaticQR: () => ipcRenderer.invoke('select-static-qr'),
+    onRemoteVerify: (callback) => ipcRenderer.on('remote-verify', () => callback()),
+    onRemoteClose: (callback) => ipcRenderer.on('remote-close', () => callback()),
+    onRemoteRestart: (callback) => ipcRenderer.on('remote-restart', () => callback()),
+    removeRemoteListeners: () => {
+        ipcRenderer.removeAllListeners('remote-verify');
+        ipcRenderer.removeAllListeners('remote-close');
+        ipcRenderer.removeAllListeners('remote-restart');
+    },
     
     // --- EVENT SESSION MANAGEMENT ---
     getActiveEvent: () => ipcRenderer.invoke('get-active-event'),

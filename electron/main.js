@@ -25,7 +25,7 @@ const expressApp = express();
 const PORT = 3000;
 let serverIP = 'localhost';
 
-// Buat folder khusus QR Statis agar aman diakses Express
+// Folder Brankas QR Statis (Tahan Banting)
 const STATIC_QR_PATH = path.join(app.getPath('userData'), 'static_qr');
 if (!fs.existsSync(STATIC_QR_PATH)) fs.mkdirSync(STATIC_QR_PATH, { recursive: true });
 
@@ -33,9 +33,7 @@ function getLocalIP() {
     const nets = os.networkInterfaces();
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal && !name.toLowerCase().includes('vethernet')) {
-                return net.address;
-            }
+            if (net.family === 'IPv4' && !net.internal && !name.toLowerCase().includes('vethernet')) return net.address;
         }
     }
     return '127.0.0.1';
@@ -52,37 +50,45 @@ app.whenReady().then(() => {
 
     expressApp.use('/download', express.static(OUTPUT_PATH));
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
-    expressApp.use('/qr', express.static(STATIC_QR_PATH)); // [BARU] Akses gambar QR statis
+    expressApp.use('/qr', express.static(STATIC_QR_PATH)); // Expose folder QR Statis
 
-    // [BARU] Halaman Remote Kasir untuk HP Admin
+    // ==========================================
+    // UI WEB REMOTE CASHIER (UNTUK HP ADMIN)
+    // ==========================================
     expressApp.get('/admin', (req, res) => {
         res.send(`
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>SayGumi! Cashier Hub</title>
+                <title>SayGumi! Remote Cashier</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; text-align: center; }
+                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: 4px solid #000; cursor: pointer; text-transform: uppercase; }
+                    .btn-verify { background: #4CAF50; color: #000; }
+                    .btn-danger { background: #f44336; color: #fff; }
+                    .btn-warning { background: #ffeb3b; color: #000; }
+                </style>
             </head>
-            <body style="font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4;">
-                <h2>SayGumi! Remote Cashier</h2>
-                <p style="color: #666;">Tekan tombol di bawah HANYA JIKA pelanggan sudah transfer ke QRIS Statis.</p>
-                <br/>
-                <button onclick="fetch('/api/verify').then(()=>alert('Pelanggan berhasil diloloskan ke kamera!'))" 
-                        style="padding: 20px; font-size: 18px; font-weight: bold; background: #4CAF50; color: white; border: none; border-radius: 8px; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    ✅ VERIFIKASI PEMBAYARAN
-                </button>
+            <body>
+                <h2>📸 SayGumi! Cashier</h2>
+                <p style="color: #aaa; margin-bottom: 30px;">Pastikan uang masuk sebelum klik Verifikasi.</p>
+                
+                <button class="btn btn-verify" onclick="fetch('/api/verify').then(()=>alert('Pelanggan diloloskan!'))">✅ Loloskan Pelanggan</button>
+                <hr style="border-color: #444; margin: 30px 0;" />
+                <h3 style="color: #aaa;">Remote Control Mesin</h3>
+                <button class="btn btn-warning" onclick="if(confirm('Tutup sesi ini secara paksa?')) fetch('/api/close')">🔒 Tutup Sesi Berjalan</button>
+                <button class="btn btn-danger" onclick="if(confirm('Restart aplikasi Photobooth?')) fetch('/api/restart')">🔄 Restart Aplikasi</button>
             </body>
             </html>
         `);
     });
 
-    // Endpoint yang ditembak oleh tombol di HP Admin
-    expressApp.get('/api/verify', (req, res) => {
-        if(mainWindow) mainWindow.webContents.send('manual-verify-trigger');
-        res.json({ success: true });
-    });
+    // Endpoint yang ditembak dari HP Kasir
+    expressApp.get('/api/verify', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-verify'); res.json({ success: true }); });
+    expressApp.get('/api/close', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-close'); res.json({ success: true }); });
+    expressApp.get('/api/restart', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-restart'); res.json({ success: true }); });
 
     expressApp.listen(PORT, '0.0.0.0', () => console.log(`[LOCAL SERVER] Menyala di http://${serverIP}:${PORT}`));
-    
     createWindow();
 });
 
@@ -93,27 +99,19 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280, height: 720, 
-        fullscreen: true,       // Memaksa layar penuh menutupi taskbar
-        autoHideMenuBar: true,  // Menyembunyikan menu File, Edit, View
-        frame: false,           // Menghapus border dan tombol [X] Windows
-        kiosk: true,            // Mengunci mode Kiosk
-        webPreferences: { 
-            nodeIntegration: false, 
-            contextIsolation: true, 
-            preload: path.join(__dirname, 'preload.js') 
-        }
+        fullscreen: true,       // KIOSK MODE: Layar Penuh menutupi taskbar
+        autoHideMenuBar: true,  // Menyembunyikan file, edit, view
+        frame: false,           // Menghapus tombol silang/minimize Windows
+        kiosk: true,            // Kunci layar
+        webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
     });
-    
     if (process.env.NODE_ENV === 'development') { 
         mainWindow.loadURL('http://localhost:5173'); 
-    } else { 
-        mainWindow.loadFile(path.join(__dirname, '../dist/index.html')); 
-    }
+        // mainWindow.webContents.openDevTools(); // DIHAPUS agar inspect element tidak terbuka otomatis
+    } 
+    else { mainWindow.loadFile(path.join(__dirname, '../dist/index.html')); }
 }
-
-app.on('window-all-closed', () => { 
-    if (process.platform !== 'darwin') app.quit(); 
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 // ==========================================
 // 4. IPC HANDLERS: GLOBAL SETTINGS
@@ -368,4 +366,26 @@ ipcMain.handle('select-static-qr', async () => {
     fs.copyFileSync(res.filePaths[0], newPath);
     
     return filename; // Hanya return nama filenya saja
+});
+
+// IPC HANDLERS: HARDWARE & STATIC FILES
+ipcMain.handle('check-hardware', async () => {
+    try {
+        const printers = await mainWindow.webContents.getPrintersAsync();
+        return { success: true, printers: printers };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('select-static-qr', async () => {
+    const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }] });
+    if (res.canceled) return null;
+    
+    // Copy gambar ke brankas sistem Kiosk agar anti-hilang
+    const filename = `qr-statis-${Date.now()}${path.extname(res.filePaths[0])}`;
+    const newPath = path.join(app.getPath('userData'), 'static_qr', filename);
+    fs.copyFileSync(res.filePaths[0], newPath);
+    
+    return filename; // Hanya simpan namanya saja di database
 });

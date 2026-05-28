@@ -80,6 +80,41 @@ function VisualEditor({ template, onSave, onCancel }) {
 }
 
 // ==========================================
+// [BARU] VIRTUAL KEYBOARD (RETRO TOUCHSCREEN)
+// ==========================================
+function VirtualKeyboard({ value, onChange, onEnter }) {
+  const rows = [
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
+  ];
+
+  const handleKeyPress = (key) => {
+    if (key === 'BACKSPACE') { onChange(value.slice(0, -1)); } 
+    else if (key === 'SPACE') { onChange(value + ' '); } 
+    else { onChange(value + key); }
+  };
+
+  return (
+    <div className="bg-gray-800 p-6 border-4 border-retro-border mt-8 w-full max-w-4xl mx-auto shadow-[8px_8px_0_0_#222] select-none">
+      {rows.map((row, i) => (
+        <div key={i} className="flex justify-center gap-2 mb-3">
+          {row.map(key => (
+            <button key={key} onClick={() => handleKeyPress(key)} className={`bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl p-4 hover:bg-white transition-all ${key === 'BACKSPACE' ? 'px-6 bg-red-200 border-red-400 hover:bg-red-300' : 'w-16 h-16 flex items-center justify-center'}`}>
+              {key === 'BACKSPACE' ? '⌫' : key}
+            </button>
+          ))}
+        </div>
+      ))}
+      <div className="flex justify-center gap-4 mt-2">
+        <button onClick={() => handleKeyPress('SPACE')} className="bg-gray-200 border-b-4 border-gray-400 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-32 py-4 hover:bg-white">SPACE</button>
+        <button onClick={onEnter} className="bg-green-400 border-b-4 border-green-600 active:border-b-0 active:translate-y-1 font-pixel text-2xl px-12 py-4 hover:bg-green-300">ENTER / LANJUT</button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // KOMPONEN UTAMA
 // ==========================================
 export default function App() {
@@ -110,9 +145,14 @@ export default function App() {
   const canvasRef = useRef(null);
   const [countdown, setCountdown] = useState(null);
   
-  // Timer Sesi & Live Preview Ref
+  // Timer Sesi
   const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
   const [timeLeftDisplay, setTimeLeftDisplay] = useState(0);
+
+  // [BARU] Hardware & Kasir State
+  const [hwStatus, setHwStatus] = useState(null);
+  const [availablePrinters, setAvailablePrinters] = useState([]);
+  const [availableCameras, setAvailableCameras] = useState([]);
   
   const previewContainerRef = useRef(null);
   const [previewScale, setPreviewScale] = useState(1);
@@ -125,32 +165,50 @@ export default function App() {
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 
   useEffect(() => {
-    store.fetchSettings(); 
-    store.fetchTemplates(); 
-    store.fetchServerIP(); 
-    store.fetchActiveEvent(); 
+    store.fetchSettings(); store.fetchTemplates(); store.fetchServerIP(); 
+    store.fetchActiveEvent(); store.fetchRecentEvents();
     
-    window.electronAPI.getRecentEvents().then(events => {
-      store.fetchRecentEvents(); 
-      if (events && events.length === 0) { setShowCreateForm(true); } 
-      else { setShowCreateForm(false); }
-    });
-    
-    // ===> TAMBAHKAN BLOK INI <===
-    const verifyHardware = async () => {
+    // [BARU] Cek Hardware & Ambil List Device
+    const initHardware = async () => {
       let msg = "";
       try {
         const hw = await window.electronAPI.checkHardware();
-        msg += hw.printers?.length > 0 ? `🖨️ ${hw.printers.length} Printer OK. ` : `❌ Printer Tidak Terdeteksi. `;
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        msg += camStream ? `📷 Kamera OK.` : `❌ Kamera Error.`;
-        if(camStream) camStream.getTracks().forEach(t => t.stop());
-      } catch(e) { msg += `❌ Kamera Tidak Ditemukan.`; }
+        setAvailablePrinters(hw.printers || []);
+        msg += hw.printers?.length > 0 ? `🖨️ Printer OK. ` : `❌ Printer Tidak Terdeteksi. `;
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(device => device.kind === 'videoinput');
+        setAvailableCameras(videoInputs);
+        msg += videoInputs.length > 0 ? `📷 Kamera OK.` : `❌ Kamera Error.`;
+
+        if(hw.printers?.length > 0 && videoInputs.length > 0) store.setHardwareReady(true);
+        else store.setHardwareReady(false);
+      } catch(e) { msg += `❌ Hardware Error.`; store.setHardwareReady(false); }
+
       setHwStatus(msg);
       setTimeout(() => setHwStatus(null), 6000); // Pudar dalam 6 detik
     };
-    verifyHardware();
-    // ===========================
+    initHardware();
+
+    // [BARU] Listener Remote Cashier
+    if (window.electronAPI.onRemoteVerify) {
+      window.electronAPI.onRemoteVerify(() => {
+        if (useStore.getState().waitingForPayment) {
+          setStatusText("Verifikasi Sukses!");
+          setTimeout(() => {
+            store.setWaitingForPayment(false);
+            executeStartSessionTimer(); // Lanjut ke kamera
+          }, 1000);
+        }
+      });
+      window.electronAPI.onRemoteClose(() => {
+        store.resetCustomerSession();
+        store.setScreen('landing');
+      });
+      window.electronAPI.onRemoteRestart(() => {
+        window.location.reload();
+      });
+    }
 
     const handleKeyDown = async (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
@@ -269,6 +327,7 @@ export default function App() {
   };
   const reopenEvent = async (eventId) => { if(confirm("Lanjutkan sesi ini?")) { await window.electronAPI.reopenEvent(eventId); store.fetchActiveEvent(); } };
 
+  // CUSTOMER FLOW HANDLERS
   const startCustomerPhoto = async (tpl) => {
     setCustomerTemplate(tpl);
     const slotsArr = typeof tpl.slots === 'string' ? JSON.parse(tpl.slots) : (tpl.slots || []);
@@ -277,22 +336,29 @@ export default function App() {
     const folder = await window.electronAPI.startCustomerSession(store.activeEvent.id);
     store.setSessionFolder(folder);
 
-    // KONDISIONAL PAYMENT BARU
-    const isFree = tpl.override_price <= 0;
+    // [REVISI]: Selalu masuk Input Nama terlebih dahulu!
+    store.setScreen('input_name');
+  };
+
+  // [BARU]: Dipanggil SETELAH nama diinput di Virtual Keyboard
+  const submitNameAndPay = () => {
+    if(!customerName) return alert("Nama wajib diisi!");
+
+    const isFree = customerTemplate.override_price <= 0;
     const isOffline = globalData.app_mode === 'offline';
     const forceStatic = globalData.force_static_qr === 1;
 
     if (isFree) {
-      store.setScreen('input_name');
+        executeStartSessionTimer(); // Lanjut kamera
     } else if (isOffline || forceStatic) {
-      // MODE STATIS (VERIFIKASI MANUAL)
-      store.setupPayment(tpl.override_price, 'input_name');
-      setQrUrl(`http://localhost:3000/qr/${globalData.static_qr_path}`);
-      setStatusText("Menunggu Kasir...");
+        // MODE OFFLINE / STATIS (Tahan di layar Payment)
+        store.setupPayment(customerTemplate.override_price, 'camera');
+        setQrUrl(`http://localhost:3000/qr/${globalData.static_qr_path}`);
+        setStatusText("Menunggu Kasir Memverifikasi...");
     } else {
-      // MODE MIDTRANS (AUTO POLLING)
-      store.setupPayment(tpl.override_price, 'input_name');
-      initMidtrans(tpl.override_price);
+        // MODE ONLINE MIDTRANS
+        store.setupPayment(customerTemplate.override_price, 'camera');
+        initMidtrans(customerTemplate.override_price);
     }
   };
 
@@ -303,17 +369,27 @@ export default function App() {
       setQrUrl(res.qrUrl); setStatusText("Menunggu Pembayaran...");
       const chk = setInterval(async () => {
         const st = await window.electronAPI.checkPayment(res.orderId);
-        if(st.success && st.status === 'settlement') { clearInterval(chk); setStatusText("Lunas!"); setTimeout(() => { store.setScreen('input_name'); }, 1500); }
+        if(st.success && st.status === 'settlement') { 
+            clearInterval(chk); 
+            setStatusText("Lunas!"); 
+            setTimeout(() => { store.setWaitingForPayment(false); executeStartSessionTimer(); }, 1500); 
+        }
+        // Hentikan jika layar pindah (di-cancel/timeout)
+        if (useStore.getState().currentScreen !== 'payment') clearInterval(chk);
       }, 3000);
     } else setStatusText("Error Midtrans");
   };
 
   const executeStartSessionTimer = async () => {
-    if(!customerName) return alert("Nama wajib diisi!");
     setSessionExpiresAt(Date.now() + 600000); 
     store.setScreen('camera');
-    try { const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } }); if(videoRef.current) videoRef.current.srcObject = stream; } 
-    catch(e) { console.error("Kamera gagal", e); }
+    
+    // [REVISI]: Gunakan Kamera Spesifik dari Dropdown Settings jika diset
+    try { 
+        const videoConstraints = globalData.selected_camera ? { deviceId: { exact: globalData.selected_camera }, width: 1280, height: 720 } : { width: 1280, height: 720 };
+        const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints }); 
+        if(videoRef.current) videoRef.current.srcObject = stream; 
+    } catch(e) { console.error("Kamera gagal", e); }
   };
 
   const takePhotoAction = async () => {
@@ -437,7 +513,17 @@ export default function App() {
           <h1 className="font-pixel text-6xl text-retro-border mb-4">SayGumi!</h1>
           <p className="font-sys text-2xl text-gray-600 tracking-wider">Tap anywhere to start</p>
         </div>
-        <button onClick={() => { store.resetCustomerSession(); setCustomerName(''); setSessionExpiresAt(null); store.setScreen('template'); }} className="retro-btn px-10 py-6 text-2xl hover:brightness-110">MULAI SEKARANG</button>
+        
+        {/* [REVISI]: Hardware Blocker UI */}
+        {(!store.isHardwareReady && globalData.hw_bypass_mode !== 1) ? (
+            <button disabled className="retro-btn-danger px-10 py-6 text-2xl opacity-50 cursor-not-allowed">
+               HARDWARE OFFLINE (TIDAK SIAP)
+            </button>
+        ) : (
+            <button onClick={() => { store.resetCustomerSession(); setCustomerName(''); setSessionExpiresAt(null); store.setScreen('template'); }} className="retro-btn px-10 py-6 text-2xl hover:brightness-110">
+               MULAI SEKARANG
+            </button>
+        )}
       </div>
     );
 
@@ -465,11 +551,14 @@ export default function App() {
     if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen bg-retro-bg"><div className="retro-window w-[400px] p-6 bg-white text-center"><h2 className="font-pixel text-2xl mb-4">Scan QRIS</h2><div className="font-sys text-5xl font-bold text-retro-success mb-6">Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[280px] h-[280px] mx-auto border-4 border-retro-border flex items-center justify-center bg-gray-100 mb-6">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-2xl font-bold text-red-600">{statusText}</div></div></div>;
     
     if (store.currentScreen === 'input_name') return (
-      <div className="flex flex-col items-center justify-center h-screen bg-retro-bg">
-        <div className="retro-window w-[500px] p-8 bg-white text-center">
-          <h2 className="font-pixel text-2xl mb-6">Nama Kamu Siapa?</h2>
-          <input type="text" className="w-full border-4 border-black p-4 text-center font-sys text-2xl outline-none bg-gray-100 focus:bg-white" placeholder="Ketik namamu..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-          <button onClick={executeStartSessionTimer} className="retro-btn w-full mt-8 py-4 text-xl bg-retro-success">LANJUTKAN KE KAMERA</button>
+      <div className="flex flex-col items-center justify-center h-screen bg-retro-bg p-8">
+        <div className="retro-window w-full max-w-4xl p-8 bg-white text-center shadow-[8px_8px_0_0_#222]">
+          <h2 className="font-pixel text-3xl mb-6">Siapa Nama Kamu?</h2>
+          {/* [REVISI]: Input menjadi ReadOnly, bergantung pada Virtual Keyboard */}
+          <input type="text" readOnly className="w-full border-8 border-black p-6 text-center font-sys text-4xl outline-none bg-gray-100" placeholder="Ketik dari keyboard di bawah..." value={customerName} />
+          
+          {/* VIRTUAL KEYBOARD INJECTION */}
+          <VirtualKeyboard value={customerName} onChange={setCustomerName} onEnter={submitNameAndPay} />
         </div>
       </div>
     );
@@ -676,13 +765,12 @@ export default function App() {
   return (
     <div className="w-screen h-screen overflow-hidden relative">
       
-      {/* ===> TAMBAHKAN TOAST INI <=== */}
+      {/* [BARU]: TOAST NOTIFICATION HARDWARE */}
       {hwStatus && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-200 text-black px-8 py-3 border-4 border-black font-sys font-bold z-[200] shadow-[4px_4px_0_0_#000] animate-bounce">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-yellow-200 text-black px-8 py-4 border-4 border-black font-sys font-bold z-[200] shadow-[4px_4px_0_0_#000] animate-bounce text-xl text-center whitespace-pre-wrap">
             {hwStatus}
         </div>
       )}
-      {/* ============================ */}
 
       {renderScreen()}
 
@@ -703,12 +791,12 @@ export default function App() {
                   <div className="font-sys text-sm mt-2 flex flex-col gap-3">
                     <div>
                       <p className="font-bold">📁 Direktori Lokal (Backup):</p>
-                      <p className="text-gray-600 bg-gray-100 p-2 border-2 border-gray-300 select-all">{dashboardData?.localPath}</p>
+                      <p className="text-gray-600 bg-gray-100 p-2 border-2 border-gray-300 select-all">{dashboardData?.localPath || 'Memuat...'}</p>
                     </div>
                     {globalData.app_mode === 'online' && (
                     <div>
                       <p className="font-bold">☁️ Google Drive:</p>
-                      <p className="text-blue-600 bg-blue-50 p-2 border-2 border-blue-200 select-all break-all">{dashboardData?.gdriveLink}</p>
+                      <p className="text-blue-600 bg-blue-50 p-2 border-2 border-blue-200 select-all break-all">{dashboardData?.gdriveLink || 'Memuat...'}</p>
                     </div>
                     )}
                   </div>
@@ -716,8 +804,10 @@ export default function App() {
 
                 <div className="bg-white border-4 border-retro-border p-4 shadow-[4px_4px_0_0_#222] flex flex-col items-center justify-center shrink-0 w-[220px]">
                   <h3 className="font-pixel text-sm mb-2 text-center text-green-700">Remote Cashier</h3>
-                  <img src={dashboardData?.adminQr} className="w-[120px] h-[120px] border-4 border-gray-200" alt="Admin QR" />
-                  <p className="font-sys text-[10px] text-gray-500 mt-2 text-center leading-tight">Scan via HP Admin untuk<br/>verifikasi pembayaran statis.</p>
+                  {dashboardData?.adminQr ? (
+                     <img src={dashboardData.adminQr} className="w-[120px] h-[120px] border-4 border-gray-200" alt="Admin QR" />
+                  ) : ( <div className="w-[120px] h-[120px] border-4 flex items-center justify-center">⏳</div> )}
+                  <p className="font-sys text-[10px] text-gray-500 mt-2 text-center leading-tight">Scan via HP Admin</p>
                 </div>
               </div>
 
@@ -787,23 +877,51 @@ export default function App() {
                 <div className="flex flex-col"><label className="font-bold">HPP Tinta (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.hpp_tinta)} onChange={e=>setGlobalData({...globalData, hpp_tinta: parseRp(e.target.value)})} /></div>
                 <div className="flex flex-col"><label className="font-bold">Biaya Ops (Rp)</label><input type="text" className="border-4 p-2 outline-none" value={formatRp(globalData.biaya_ops)} onChange={e=>setGlobalData({...globalData, biaya_ops: parseRp(e.target.value)})} /></div>
               </div>
+              {/* [REVISI]: Pengaturan Midtrans, QR Statis, dan Hardware */}
               <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 border-4 border-retro-border">
                   <div className="flex flex-col gap-2">
                       <label className="font-bold text-sm">Midtrans Server Key:</label>
                       <input type="text" className="border-4 p-2 outline-none text-sm" value={globalData.midtrans_server_key} onChange={e=>setGlobalData({...globalData, midtrans_server_key: e.target.value})} />
                       <label className="font-bold text-sm mt-2">Midtrans Client Key:</label>
                       <input type="text" className="border-4 p-2 outline-none text-sm" value={globalData.midtrans_client_key} onChange={e=>setGlobalData({...globalData, midtrans_client_key: e.target.value})} />
+                      
+                      <hr className="my-2 border-2 border-dashed border-gray-400" />
+                      
+                      <label className="font-bold text-sm">Pilih Kamera Utama:</label>
+                      <select className="border-4 p-2 text-sm outline-none" value={globalData.selected_camera} onChange={e=>setGlobalData({...globalData, selected_camera: e.target.value})}>
+                         <option value="">-- Deteksi Otomatis Sistem --</option>
+                         {availableCameras.map(c => <option key={c.deviceId} value={c.deviceId}>{c.label}</option>)}
+                      </select>
+
+                      <label className="font-bold text-sm mt-2">Pilih Printer Thermal/Foto:</label>
+                      <select className="border-4 p-2 text-sm outline-none" value={globalData.selected_printer} onChange={e=>setGlobalData({...globalData, selected_printer: e.target.value})}>
+                         <option value="">-- Deteksi Otomatis Sistem --</option>
+                         {availablePrinters.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                      </select>
+                      
+                      <label className="font-bold flex items-center gap-2 text-sm text-red-800 mt-2 p-2 bg-red-100 border-2 border-red-300">
+                          <input type="checkbox" className="w-5 h-5" checked={globalData.hw_bypass_mode === 1} onChange={e=>setGlobalData({...globalData, hw_bypass_mode: e.target.checked ? 1 : 0})} /> 
+                          Troubleshooting / Bypass Hardware Blocker
+                      </label>
                   </div>
                   <div className="flex flex-col gap-2 border-l-4 border-retro-border pl-6">
-                      <label className="font-bold flex items-center gap-2 text-sm text-blue-800">
-                          <input type="checkbox" className="w-5 h-5" checked={globalData.force_static_qr === 1} onChange={e=>setGlobalData({...globalData, force_static_qr: e.target.checked ? 1 : 0})} /> 
+                      <label className="font-bold flex items-center gap-2 text-sm text-blue-800 bg-blue-50 p-2 border-2 border-blue-200">
+                          <input type="checkbox" className="w-5 h-5 shrink-0" checked={globalData.force_static_qr === 1} onChange={e=>setGlobalData({...globalData, force_static_qr: e.target.checked ? 1 : 0})} /> 
                           Paksa Gunakan QR Statis (Bypass Midtrans)
                       </label>
-                      <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="retro-btn py-2 text-xs mt-1">UPLOAD GAMBAR QR</button>
-                      {globalData.static_qr_path && <p className="text-[10px] text-green-700 truncate w-[250px]">✓ {globalData.static_qr_path}</p>}
                       
-                      <label className="font-bold mt-4 text-sm">ID Folder Google Drive (Induk):</label>
-                      <input type="text" className="border-4 p-2 outline-none text-sm" placeholder="Paste ID Folder..." value={globalData.gdrive_folder_id} onChange={e=>setGlobalData({...globalData, gdrive_folder_id: e.target.value})} />
+                      <div className="flex gap-4 items-start mt-2">
+                          <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="retro-btn py-2 text-xs flex-1">UPLOAD GAMBAR QR STATIS</button>
+                          {globalData.static_qr_path && (
+                              <div className="border-4 border-gray-300 p-1 bg-white w-[100px] h-[100px] flex items-center justify-center shrink-0">
+                                 <img src={`http://localhost:3000/qr/${globalData.static_qr_path}`} className="max-w-full max-h-full object-contain" alt="QR Preview" />
+                              </div>
+                          )}
+                      </div>
+                      
+                      <hr className="my-2 border-2 border-dashed border-gray-400" />
+                      <label className="font-bold mt-2 text-sm">ID Folder Google Drive (Induk):</label>
+                      <input type="text" className="border-4 p-2 outline-none text-sm" placeholder="Paste ID Folder GDrive..." value={globalData.gdrive_folder_id} onChange={e=>setGlobalData({...globalData, gdrive_folder_id: e.target.value})} />
                   </div>
               </div>
               <button type="submit" className="retro-btn py-4 bg-retro-success mt-4">SIMPAN PENGATURAN MESIN</button>

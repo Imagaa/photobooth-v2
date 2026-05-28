@@ -6,10 +6,9 @@ const dbPath = path.join(app.getPath('userData'), 'photobooth_v2.db');
 const db = new Database(dbPath);
 
 // ==========================================
-// INISIALISASI TABEL (MULTI-EVENT ARCHITECTURE)
+// INISIALISASI TABEL
 // ==========================================
 db.exec(`
-    -- TABEL PENGATURAN MESIN GLOBAL (Shortcut: Ctrl+Shift+P)
     CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         hpp_kertas INTEGER DEFAULT 3000,
@@ -20,31 +19,28 @@ db.exec(`
         app_mode TEXT DEFAULT 'online' 
     );
     
-    -- TABEL MASTER TEMPLATE (Shortcut: Ctrl+Shift+T)
     CREATE TABLE IF NOT EXISTS templates (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename TEXT UNIQUE,
         filepath TEXT,
         is_free INTEGER DEFAULT 0,
-        price INTEGER DEFAULT 15000, -- Harga Dasar (HET)
+        price INTEGER DEFAULT 15000,
         is_visible INTEGER DEFAULT 1,
         width INTEGER,
         height INTEGER,
         slots_json TEXT DEFAULT '[]'
     );
     
-    -- TABEL SESI EVENT (OTAK OPERASIONAL BARU)
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nama_event TEXT,
         folder_name TEXT,
         saldo_awal INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1, -- 1: Aktif, 0: Ditutup/Exit
-        templates_json TEXT DEFAULT '[]', -- Array { id_template, override_price }
+        is_active INTEGER DEFAULT 1,
+        templates_json TEXT DEFAULT '[]',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     
-    -- TABEL TRANSAKSI / CUSTOMER FOTO
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id INTEGER,
@@ -57,7 +53,6 @@ db.exec(`
     );
 `);
 
-// Seeder Awal untuk Settings (Hanya 1 baris ID=1 yang akan ada selamanya)
 const stmt = db.prepare('SELECT COUNT(*) as count FROM settings');
 if (stmt.get().count === 0) {
     db.prepare(`
@@ -67,12 +62,14 @@ if (stmt.get().count === 0) {
 }
 
 // ==========================================
-// FORCE MIGRATION (MENAMBAH KOLOM BARU TANPA HAPUS DB LAMA)
+// FORCE MIGRATION
 // ==========================================
 try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT DEFAULT ''"); } catch(e) {}
-
-// Penambahan Kolom Fitur Baru (Fase 3 & 4)
+try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN static_qr_path TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN force_static_qr INTEGER DEFAULT 0"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN gdrive_folder_id TEXT DEFAULT ''"); } catch(e) {}

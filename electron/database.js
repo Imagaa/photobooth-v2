@@ -57,7 +57,7 @@ db.exec(`
     );
 `);
 
-// Seeder Awal untuk Settings (Hanya 1 baris ID=1 yang akan ada selamanya)
+// Seeder Awal untuk Settings
 const stmt = db.prepare('SELECT COUNT(*) as count FROM settings');
 if (stmt.get().count === 0) {
     db.prepare(`
@@ -65,5 +65,16 @@ if (stmt.get().count === 0) {
         VALUES (?, ?, ?, ?, ?, ?)
     `).run(3000, 2000, 0, '', '', 'online');
 }
+
+// ==========================================
+// FORCE MIGRATION (MENGOBATI ERROR "NO COLUMN")
+// ==========================================
+// Memaksa penambahan kolom jika database lama masih menggunakan skema lama
+try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
 
 module.exports = db;

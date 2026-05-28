@@ -88,8 +88,8 @@ export default function App() {
   // States - Admin Modals
   const [isGlobalOpen, setGlobalOpen] = useState(false);
   const [isTemplateOpen, setTemplateOpen] = useState(false);
-  const [isDashboardOpen, setDashboardOpen] = useState(false); // [BARU]
-  const [dashboardData, setDashboardData] = useState(null); // [BARU]
+  const [isDashboardOpen, setDashboardOpen] = useState(false); 
+  const [dashboardData, setDashboardData] = useState(null); 
   
   const [globalData, setGlobalData] = useState({ hpp_kertas: '', hpp_tinta: '', biaya_ops: '', midtrans_server_key: '', midtrans_client_key: '', app_mode: 'online' });
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -109,9 +109,14 @@ export default function App() {
   const canvasRef = useRef(null);
   const [countdown, setCountdown] = useState(null);
   
-  // Timer Sesi
+  // Timer Sesi & Live Preview Ref
   const [sessionExpiresAt, setSessionExpiresAt] = useState(null);
   const [timeLeftDisplay, setTimeLeftDisplay] = useState(0);
+  
+  const previewContainerRef = useRef(null);
+  const [previewScale, setPreviewScale] = useState(1);
+  const reviewPreviewContainerRef = useRef(null);
+  const [reviewPreviewScale, setReviewPreviewScale] = useState(1);
 
   const capturedPhotosRef = useRef(store.capturedPhotos);
   const currentScreenRef = useRef(store.currentScreen);
@@ -119,8 +124,19 @@ export default function App() {
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 
   useEffect(() => {
-    store.fetchSettings(); store.fetchTemplates(); store.fetchServerIP(); 
-    store.fetchActiveEvent(); store.fetchRecentEvents();
+    store.fetchSettings(); 
+    store.fetchTemplates(); 
+    store.fetchServerIP(); 
+    store.fetchActiveEvent(); 
+    
+    window.electronAPI.getRecentEvents().then(events => {
+      store.fetchRecentEvents(); 
+      if (events && events.length === 0) {
+        setShowCreateForm(true);
+      } else {
+        setShowCreateForm(false);
+      }
+    });
     
     const handleKeyDown = async (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
@@ -133,7 +149,10 @@ export default function App() {
         const ev = await window.electronAPI.getActiveEvent();
         if (ev && confirm(`TUTUP event "${ev.nama_event}" secara permanen?`)) {
           await window.electronAPI.closeEvent(ev.id);
-          store.fetchActiveEvent(); store.fetchRecentEvents(); setShowCreateForm(false); setDashboardOpen(false);
+          store.fetchActiveEvent(); 
+          store.fetchRecentEvents(); 
+          setShowCreateForm(false); 
+          setDashboardOpen(false);
         }
       }
     };
@@ -142,9 +161,26 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (store.settings) setGlobalData(store.settings); }, [store.settings]);
-  useEffect(() => { if (store.recentEvents.length === 0) setShowCreateForm(true); }, [store.recentEvents]);
 
-  // LIVE DASHBOARD DATA FETCHING
+  // Kalkulasi Skala Live Preview Kamera & Review (Anti-Melar)
+  useEffect(() => {
+    const updateScale = () => {
+      if (previewContainerRef.current && customerTemplate) {
+        const sX = (previewContainerRef.current.clientWidth - 16) / Number(customerTemplate.width);
+        const sY = (previewContainerRef.current.clientHeight - 16) / Number(customerTemplate.height);
+        setPreviewScale(Math.min(sX, sY, 1));
+      }
+      if (reviewPreviewContainerRef.current && customerTemplate) {
+        const sX = (reviewPreviewContainerRef.current.clientWidth - 16) / Number(customerTemplate.width);
+        const sY = (reviewPreviewContainerRef.current.clientHeight - 16) / Number(customerTemplate.height);
+        setReviewPreviewScale(Math.min(sX, sY, 1));
+      }
+    };
+    const timer = setTimeout(updateScale, 100);
+    window.addEventListener('resize', updateScale);
+    return () => { clearTimeout(timer); window.removeEventListener('resize', updateScale); };
+  }, [store.currentScreen, customerTemplate, store.capturedPhotos]);
+
   const fetchDashboardData = async () => {
     const ev = await window.electronAPI.getActiveEvent();
     if (ev) {
@@ -153,7 +189,6 @@ export default function App() {
     }
   };
 
-  // LOGIKA TIMER 10 MENIT
   useEffect(() => {
     if (!sessionExpiresAt) return;
     const displayInterval = setInterval(() => { setTimeLeftDisplay(Math.max(0, Math.floor((sessionExpiresAt - Date.now()) / 1000))); }, 1000);
@@ -188,7 +223,6 @@ export default function App() {
     else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
   };
 
-  // ADMIN HANDLERS
   const saveGlobalSettings = async (e) => { e.preventDefault(); await window.electronAPI.saveSettings(globalData); store.fetchSettings(); alert("Pengaturan Disimpan!"); setGlobalOpen(false); };
   const uploadMasterTemplate = async () => { const filePath = await window.electronAPI.openFileDialog(); if (filePath) { const res = await window.electronAPI.saveNewTemplate({ tempPath: filePath }); if (res.success) store.fetchTemplates(); } };
   const updateMasterAttr = async (tpl, field, value) => { await window.electronAPI.updateTemplate({ ...tpl, [field]: value }); store.fetchTemplates(); };
@@ -208,7 +242,6 @@ export default function App() {
   };
   const reopenEvent = async (eventId) => { if(confirm("Lanjutkan sesi ini?")) { await window.electronAPI.reopenEvent(eventId); store.fetchActiveEvent(); } };
 
-  // CUSTOMER FLOW HANDLERS
   const startCustomerPhoto = async (tpl) => {
     setCustomerTemplate(tpl);
     const slotsArr = typeof tpl.slots === 'string' ? JSON.parse(tpl.slots) : (tpl.slots || []);
@@ -262,7 +295,6 @@ export default function App() {
     setSessionExpiresAt(null); 
     store.setScreen('loading');
     
-    // [PERBAIKAN]: Menyisipkan data Event, Nama, dan Harga untuk disimpan ke DB SQLite
     const res = await window.electronAPI.processImages({ 
       photosBase64: store.capturedPhotos, 
       templateId: customerTemplate.id, 
@@ -276,6 +308,9 @@ export default function App() {
     else { alert("Gagal Merender: " + res.error); store.setScreen('landing'); }
   };
 
+  // ==========================================
+  // RENDER LAYAR APLIKASI
+  // ==========================================
   const renderScreen = () => {
     if (store.currentScreen === 'loading') return <div className="flex h-screen items-center justify-center bg-retro-bg font-sys text-3xl">MEMUAT SISTEM...</div>;
 
@@ -390,34 +425,201 @@ export default function App() {
       </div>
     );
 
-    if (store.currentScreen === 'camera') return (
-      <div className="flex flex-col items-center justify-center h-screen bg-black relative">
-        {sessionExpiresAt && <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-white z-50">⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}</div>}
-        <h2 className="absolute top-8 font-pixel text-white z-10 text-2xl">Sisa Jepretan: {store.capturedPhotos.filter(p=>p===null).length}</h2>
-        <div className="relative border-8 border-retro-border rounded-xl overflow-hidden bg-gray-800"><video ref={videoRef} autoPlay playsInline muted className="w-[800px] h-[600px] object-cover scale-x-[-1]"></video>{countdown && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20"><span className="font-pixel text-6xl text-white drop-shadow-[4px_4px_0_rgba(242,109,109,1)]">{countdown}</span></div>}</div>
-        <button onClick={takePhotoAction} disabled={countdown !== null} className={`retro-btn px-8 py-4 mt-8 text-xl ${countdown !== null ? 'opacity-50' : ''}`}>📸 MULAI FOTO</button><canvas ref={canvasRef} className="hidden"></canvas>
-      </div>
-    );
-
-    if (store.currentScreen === 'review') return (
-      <div className="flex flex-col items-center justify-center h-screen bg-retro-bg space-y-8 relative">
-        {sessionExpiresAt && <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-white z-50">⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}</div>}
-        <h1 className="font-pixel text-4xl">Review Hasil</h1>
-        <div className="flex gap-6 max-w-6xl overflow-x-auto p-4">
-          {store.capturedPhotos.map((photo, i) => (
-            <div key={i} className="retro-window p-4 flex flex-col items-center bg-white shrink-0"><h3 className="font-pixel text-sm mb-2">Gaya {i + 1}</h3>{photo ? <img src={photo} className="w-[200px] h-[150px] object-cover border-4 border-retro-border scale-x-[-1]" /> : <div className="w-[200px] h-[150px] bg-gray-300 border-4 border-retro-border"></div>}
-            {timeLeftDisplay > 60 && ( <button onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} disabled={store.retakesLeft <= 0 || !photo} className="mt-4 px-4 py-2 font-pixel text-xs border-2 border-retro-border bg-gray-200 hover:bg-yellow-100 disabled:opacity-50">🔄 Retake</button> )}
+    if (store.currentScreen === 'camera') {
+      const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
+      
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-retro-bg relative p-6 overflow-hidden">
+          {sessionExpiresAt && (
+            <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-retro-border z-50 shadow-[4px_4px_0_0_#333]">
+              ⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}
             </div>
-          ))}
+          )}
+          
+          <h2 className="font-pixel text-3xl text-center mb-4 text-retro-header drop-shadow-md">
+              Gaya ke-{store.capturedPhotos.filter(p => p !== null).length + 1}
+          </h2>
+
+          <div className="flex gap-6 w-full max-w-7xl h-[75vh] items-stretch">
+            <div className="w-[70%] retro-window bg-white flex flex-col p-4 relative shadow-[8px_8px_0_0_#333]">
+              <div className="relative flex-1 border-4 border-retro-border bg-gray-900 overflow-hidden flex justify-center items-center">
+                <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"></video>
+                {countdown && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+                    <span className="font-pixel text-9xl text-white drop-shadow-[6px_6px_0_rgba(242,109,109,1)]">
+                      {countdown}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <button 
+                onClick={takePhotoAction} 
+                disabled={countdown !== null} 
+                className={`retro-btn w-full py-4 mt-4 text-2xl shrink-0 ${countdown !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                📸 AMBIL FOTO
+              </button>
+            </div>
+
+            <div className="w-[30%] retro-window bg-white flex flex-col p-4 shrink-0 shadow-[8px_8px_0_0_#333]">
+              <h2 className="font-pixel text-lg text-center mb-4 shrink-0">Preview</h2>
+              <div ref={previewContainerRef} className="flex-1 min-h-0 border-4 border-retro-border bg-gray-200 relative overflow-hidden flex justify-center items-center p-2">
+                  {customerTemplate && (
+                      <div className="shrink-0" style={{
+                          width: Number(customerTemplate.width),
+                          height: Number(customerTemplate.height),
+                          minWidth: Number(customerTemplate.width),
+                          minHeight: Number(customerTemplate.height),
+                          transform: `scale(${previewScale})`,
+                          transformOrigin: 'center center',
+                          position: 'relative',
+                          backgroundColor: 'transparent'
+                      }}>
+                          {slotsArr.map((slot, i) => (
+                              <div key={i} style={{
+                                  position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height,
+                                  backgroundColor: '#ddd', overflow: 'hidden'
+                              }}>
+                                  {store.capturedPhotos[i] ? (
+                                      <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" alt={`Slot ${i+1}`} />
+                                  ) : (
+                                      <div className="w-full h-full border-2 border-dashed border-gray-400 flex items-center justify-center">
+                                          <span className="font-sys text-gray-500 font-bold">Slot {i+1}</span>
+                                      </div>
+                                  )}
+                              </div>
+                          ))}
+                          <img src={`http://localhost:3000/templates/${customerTemplate.filename}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
+                      </div>
+                  )}
+              </div>
+              <div className="font-sys text-center mt-4 text-lg text-gray-600 font-bold bg-yellow-100 border-4 border-black p-3 shadow-[4px_4px_0_0_#333] shrink-0">
+                 Sisa Jepretan: {store.capturedPhotos.filter(p => p === null).length}
+              </div>
+            </div>
+          </div>
+          <canvas ref={canvasRef} className="hidden"></canvas>
         </div>
-        <div className="flex flex-col items-center gap-4 mt-4">
-          {timeLeftDisplay > 60 && <p className="font-sys text-xl font-bold bg-white px-4 py-1 border-2 border-retro-border">Sisa Retake: {store.retakesLeft}</p>}
-          <button onClick={processStitching} className="retro-btn px-10 py-4 text-2xl bg-retro-success">🖨️ CETAK SEKARANG</button>
+      );
+    }
+
+    // =========================================================
+    // [BUG FIXED]: LAYAR REVIEW (ASPECT-VIDEO AGAR ANTI-SCROLL)
+    // =========================================================
+    if (store.currentScreen === 'review') {
+      const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
+      
+      // Logika grid dinamis berdasarkan jumlah foto agar tidak luber ke bawah
+      const photoCount = store.capturedPhotos.length;
+      const gridColsClass = photoCount >= 5 ? 'grid-cols-3' : 'grid-cols-2';
+
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-retro-bg space-y-4 relative p-6 overflow-hidden">
+          {sessionExpiresAt && (
+             <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 font-pixel text-xl border-4 border-retro-border z-50 shadow-[4px_4px_0_0_#333]">
+                ⏳ {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')}
+             </div>
+          )}
+          
+          <h1 className="font-pixel text-4xl text-retro-header drop-shadow-md shrink-0">Review Hasil Akhir</h1>
+          
+          <div className="flex gap-8 w-full max-w-7xl flex-1 min-h-0">
+             {/* KIRI: PREVIEW TEMPLATE FULL */}
+             <div className="w-[45%] retro-window bg-white flex flex-col p-4 shrink-0 shadow-[8px_8px_0_0_#333]">
+                <h2 className="font-pixel text-lg text-center mb-4 shrink-0">Photostrip Kamu</h2>
+                <div ref={reviewPreviewContainerRef} className="flex-1 min-h-0 border-4 border-retro-border bg-gray-200 relative overflow-hidden flex justify-center items-center p-2">
+                    {customerTemplate && (
+                        <div className="shrink-0" style={{
+                            width: Number(customerTemplate.width),
+                            height: Number(customerTemplate.height),
+                            minWidth: Number(customerTemplate.width),
+                            minHeight: Number(customerTemplate.height),
+                            transform: `scale(${reviewPreviewScale})`,
+                            transformOrigin: 'center center',
+                            position: 'relative'
+                        }}>
+                            {slotsArr.map((slot, i) => (
+                                <div key={i} style={{
+                                    position: 'absolute', top: slot.top, left: slot.left, width: slot.width, height: slot.height,
+                                    backgroundColor: '#ddd', overflow: 'hidden'
+                                }}>
+                                    {store.capturedPhotos[i] ? (
+                                        <img src={store.capturedPhotos[i]} className="w-full h-full object-cover scale-x-[-1]" />
+                                    ) : null}
+                                </div>
+                            ))}
+                            <img src={`http://localhost:3000/templates/${customerTemplate.filename}`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }} />
+                        </div>
+                    )}
+                </div>
+             </div>
+
+             {/* KANAN: LIST FOTO & RETAKE DENGAN ASPECT-VIDEO */}
+             <div className="flex-1 retro-window bg-white flex flex-col p-4 md:p-6 shadow-[8px_8px_0_0_#333] overflow-y-auto min-h-0">
+                <div className={`grid ${gridColsClass} gap-3 auto-rows-max`}>
+                  {store.capturedPhotos.map((photo, i) => (
+                    <div key={i} className="border-4 border-retro-border p-2 flex flex-col items-center bg-gray-50">
+                      <h3 className="font-pixel text-xs md:text-sm mb-1 md:mb-2">Gaya {i + 1}</h3>
+                      {/* aspect-video menjamin tinggi foto menyesuaikan lebar grid, membuang limit h-150px yang menyebabkan overflow */}
+                      {photo ? (
+                        <img src={photo} className="w-full aspect-video object-cover border-2 border-retro-border scale-x-[-1]" />
+                      ) : (
+                        <div className="w-full aspect-video bg-gray-300 border-2 border-retro-border flex items-center justify-center font-sys text-gray-500 text-xs">Kosong</div>
+                      )}
+                      {timeLeftDisplay > 60 && ( 
+                          <button 
+                            onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} 
+                            disabled={store.retakesLeft <= 0 || !photo} 
+                            className="w-full mt-2 px-2 py-1 md:py-2 font-pixel text-[10px] md:text-xs border-2 border-retro-border bg-gray-200 hover:bg-yellow-100 disabled:opacity-50 transition-colors"
+                          >
+                              🔄 Retake
+                          </button> 
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-auto pt-4 flex flex-col items-center gap-3">
+                  {timeLeftDisplay > 60 && <p className="font-sys text-lg md:text-xl font-bold bg-white px-4 py-1 border-2 border-retro-border shadow-sm">Sisa Retake: {store.retakesLeft}</p>}
+                  <button onClick={processStitching} className="retro-btn w-full py-3 md:py-4 text-xl md:text-2xl bg-retro-success shrink-0">🖨️ CETAK SEKARANG</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (store.currentScreen === 'result') return (
+      <div className="flex flex-col items-center justify-center h-screen space-y-4 bg-retro-bg p-6 overflow-hidden">
+        <h1 className="font-pixel text-5xl text-retro-border drop-shadow-md shrink-0">SayGumi!</h1>
+        <h2 className="font-sys text-2xl font-bold mb-2 shrink-0">Selesai! Scan QR Code untuk Download</h2>
+        
+        <div className="flex gap-8 items-stretch w-full max-w-5xl flex-1 min-h-0 pb-4">
+          <div className="w-[65%] retro-window bg-white p-4 flex justify-center items-center overflow-hidden relative shadow-[8px_8px_0_0_rgba(0,0,0,0.5)]">
+            <img 
+              src={finalResult?.downloadUrl} 
+              className="max-h-full max-w-full object-contain border-4 border-gray-200 bg-white shadow-lg" 
+              alt="Final Photostrip" 
+            />
+          </div>
+
+          <div className="w-[35%] retro-window bg-white p-6 flex flex-col items-center justify-center gap-4 shrink-0 shadow-[8px_8px_0_0_rgba(0,0,0,0.5)] overflow-y-auto">
+            <p className="font-pixel text-lg text-center text-retro-header">Ambil Softfile</p>
+            <div className="border-8 border-retro-border p-3 bg-gray-50 shadow-inner">
+              <img src={finalResult?.qrCode} className="w-[180px] h-[180px] lg:w-[220px] lg:h-[220px] object-contain" alt="QR Code" />
+            </div>
+            <p className="font-sys text-center text-gray-500 font-bold text-sm lg:text-base mt-2 px-2 leading-tight">
+               File resolusi tinggi tersimpan di server lokal. Segera download sebelum ditutup.
+            </p>
+            <button 
+              onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} 
+              className="retro-btn w-full py-4 mt-auto text-xl shrink-0"
+            >
+              SELESAI
+            </button>
+          </div>
         </div>
       </div>
     );
-
-    if (store.currentScreen === 'result') return <div className="flex flex-col items-center justify-center h-screen space-y-6 bg-retro-bg"><h1 className="font-pixel text-3xl">Selesai! Scan untuk Download</h1><div className="flex gap-10"><div className="retro-window bg-white p-4 h-[400px] flex"><img src={`file://${finalResult?.printPath}`} className="max-h-full object-contain border-4" /></div><div className="retro-window bg-white p-8 flex flex-col items-center justify-center gap-4"><div className="border-4 p-2 bg-gray-100"><img src={finalResult?.qrCode} className="w-[200px] h-[200px]" /></div></div></div><button onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} className="retro-btn px-8 py-4 mt-8">KEMBALI KE AWAL</button></div>;
 
     return null;
   };
@@ -435,7 +637,6 @@ export default function App() {
             <div className="retro-header bg-green-700">LIVE DASHBOARD - {store.activeEvent?.nama_event} <button onClick={()=>setDashboardOpen(false)}>X</button></div>
             
             <div className="p-6 flex flex-col gap-6 overflow-y-auto">
-              {/* Top Stats Cards */}
               <div className="grid grid-cols-4 gap-4">
                 <div className="bg-white border-4 border-retro-border p-4 text-center">
                   <p className="font-sys text-gray-500">Saldo/Deposit Awal</p>
@@ -457,7 +658,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Tabel Riwayat Sesi */}
               <div className="bg-white border-4 border-retro-border flex-1 flex flex-col">
                 <div className="bg-gray-200 border-b-4 border-retro-border p-2 font-pixel text-sm flex">
                   <div className="w-[150px]">WAKTU</div><div className="flex-1">NAMA PELANGGAN</div><div className="w-[150px]">STATUS</div><div className="w-[150px]">HARGA</div>

@@ -13,7 +13,7 @@ const db = require('./database');
 // 1. SETUP LINGKUNGAN FOLDER
 // ==========================================
 const USER_TEMPLATES_PATH = path.join(app.getPath('userData'), 'user_templates');
-const OUTPUT_PATH = path.join(app.getPath('documents'), 'Photobooth_Output'); // Root Export Excel & Folder Sesi
+const OUTPUT_PATH = path.join(app.getPath('documents'), 'Photobooth_Output'); 
 
 if (!fs.existsSync(USER_TEMPLATES_PATH)) fs.mkdirSync(USER_TEMPLATES_PATH, { recursive: true });
 if (!fs.existsSync(OUTPUT_PATH)) fs.mkdirSync(OUTPUT_PATH, { recursive: true });
@@ -29,7 +29,9 @@ function getLocalIP() {
     const nets = os.networkInterfaces();
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal && !name.toLowerCase().includes('vethernet')) return net.address;
+            if (net.family === 'IPv4' && !net.internal && !name.toLowerCase().includes('vethernet')) {
+                return net.address;
+            }
         }
     }
     return '127.0.0.1';
@@ -48,10 +50,11 @@ app.whenReady().then(() => {
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
 
     expressApp.get('/', (req, res) => {
-        res.send(`<h1>Dashboard Kasir Photobooth</h1><p>Versi Multi-Event (Dalam Pengembangan Fase 4)</p>`);
+        res.send(`<h1>Dashboard Kasir Photobooth</h1><p>Sistem Berjalan Normal</p>`);
     });
 
     expressApp.listen(PORT, '0.0.0.0', () => console.log(`[LOCAL SERVER] Menyala di http://${serverIP}:${PORT}`));
+    
     createWindow();
 });
 
@@ -62,12 +65,24 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280, height: 720, fullscreen: false,
-        webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
+        webPreferences: { 
+            nodeIntegration: false, 
+            contextIsolation: true, 
+            preload: path.join(__dirname, 'preload.js') 
+        }
     });
-    if (process.env.NODE_ENV === 'development') { mainWindow.loadURL('http://localhost:5173'); mainWindow.webContents.openDevTools(); } 
-    else { mainWindow.loadFile(path.join(__dirname, '../dist/index.html')); }
+    
+    if (process.env.NODE_ENV === 'development') { 
+        mainWindow.loadURL('http://localhost:5173'); 
+        mainWindow.webContents.openDevTools(); 
+    } else { 
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html')); 
+    }
 }
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+app.on('window-all-closed', () => { 
+    if (process.platform !== 'darwin') app.quit(); 
+});
 
 // ==========================================
 // 4. IPC HANDLERS: GLOBAL SETTINGS
@@ -77,8 +92,20 @@ ipcMain.handle('get-server-ip', () => serverIP);
 ipcMain.handle('get-settings', () => db.prepare('SELECT * FROM settings WHERE id=1').get());
 
 ipcMain.handle('save-settings', (event, data) => {
-    db.prepare(`UPDATE settings SET hpp_kertas=?, hpp_tinta=?, biaya_ops=?, midtrans_server_key=?, midtrans_client_key=?, app_mode=? WHERE id=1`)
-      .run(data.hpp_kertas || 0, data.hpp_tinta || 0, data.biaya_ops || 0, data.midtrans_server_key || '', data.midtrans_client_key || '', data.app_mode || 'online');
+    const stmt = db.prepare(`
+        UPDATE settings SET 
+        hpp_kertas=?, hpp_tinta=?, biaya_ops=?, 
+        midtrans_server_key=?, midtrans_client_key=?, app_mode=? 
+        WHERE id=1
+    `);
+    stmt.run(
+        data.hpp_kertas || 0, 
+        data.hpp_tinta || 0, 
+        data.biaya_ops || 0, 
+        data.midtrans_server_key || '', 
+        data.midtrans_client_key || '', 
+        data.app_mode || 'online'
+    );
     return true;
 });
 
@@ -89,66 +116,80 @@ ipcMain.handle('get-active-event', () => {
     return db.prepare('SELECT * FROM events WHERE is_active=1 ORDER BY id DESC LIMIT 1').get();
 });
 
-// [BARU] Ambil 10 Riwayat Event Terakhir
 ipcMain.handle('get-recent-events', () => {
     return db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 10').all();
 });
 
-// [BARU] Buka ulang event lama
 ipcMain.handle('reopen-event', (event, eventId) => {
-    db.prepare('UPDATE events SET is_active=0').run(); // Matikan semua
-    db.prepare('UPDATE events SET is_active=1 WHERE id=?').run(eventId); // Aktifkan target
+    db.prepare('UPDATE events SET is_active=0').run();
+    db.prepare('UPDATE events SET is_active=1 WHERE id=?').run(eventId);
     return { success: true };
 });
 
 ipcMain.handle('create-event', (event, data) => {
     try {
-        db.prepare('UPDATE events SET is_active=0').run(); // Matikan sesi lain
-        
+        db.prepare('UPDATE events SET is_active=0').run();
         const now = new Date();
         const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-        const safeName = data.nama_event.replace(/[^a-zA-Z0-9]/g, '_');
-        const folderName = `${dateStr}_${safeName}`;
+        const folderName = `${dateStr}_${data.nama_event.replace(/[^a-zA-Z0-9]/g, '_')}`;
         
-        // [BUG FIXED]: Memasukkan variabel folderName ke dalam fungsi .run()
-        const info = db.prepare(`INSERT INTO events (nama_event, folder_name, saldo_awal, is_active, templates_json) VALUES (?, ?, ?, 1, ?)`)
-          .run(data.nama_event, folderName, data.saldo_awal || 0, JSON.stringify(data.templates));
+        const info = db.prepare(`
+            INSERT INTO events (nama_event, folder_name, saldo_awal, is_active, templates_json) 
+            VALUES (?, ?, ?, 1, ?)
+        `).run(data.nama_event, folderName, data.saldo_awal || 0, JSON.stringify(data.templates));
 
         const eventDir = path.join(OUTPUT_PATH, folderName);
-        if (!fs.existsSync(eventDir)) fs.mkdirSync(eventDir, { recursive: true });
-
+        if (!fs.existsSync(eventDir)) {
+            fs.mkdirSync(eventDir, { recursive: true });
+        }
+        
         return { success: true, id: info.lastInsertRowid };
     } catch (err) { 
-        console.error("[BACKEND ERROR]:", err.message);
         return { success: false, error: err.message }; 
     }
 });
 
-ipcMain.handle('close-event', (event, eventId) => {
-    db.prepare('UPDATE events SET is_active=0 WHERE id=?').run(eventId);
-    return { success: true };
+ipcMain.handle('close-event', (event, eventId) => { 
+    db.prepare('UPDATE events SET is_active=0 WHERE id=?').run(eventId); 
+    return { success: true }; 
 });
 
 // ==========================================
 // 6. IPC HANDLERS: MASTER TEMPLATES
 // ==========================================
-ipcMain.handle('get-templates', () => db.prepare('SELECT * FROM templates ORDER BY id DESC').all().map(r => ({ ...r, slots: JSON.parse(r.slots_json) })));
-ipcMain.handle('open-file-dialog', async () => { const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png'] }] }); return res.canceled ? null : res.filePaths[0]; });
+ipcMain.handle('get-templates', () => {
+    return db.prepare('SELECT * FROM templates ORDER BY id DESC').all().map(r => ({ ...r, slots: JSON.parse(r.slots_json) }));
+});
+
+ipcMain.handle('open-file-dialog', async () => { 
+    const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png'] }] }); 
+    return res.canceled ? null : res.filePaths[0]; 
+});
+
 ipcMain.handle('save-new-template', async (event, { tempPath }) => {
     try {
         const metadata = await sharp(tempPath).metadata();
         const filename = `tpl-${Date.now()}.png`;
         const newPath = path.join(USER_TEMPLATES_PATH, filename);
         fs.copyFileSync(tempPath, newPath);
-        const info = db.prepare(`INSERT INTO templates (filename, filepath, width, height, price, is_visible, slots_json) VALUES (?, ?, ?, ?, ?, 1, '[]')`)
-          .run(filename, newPath, metadata.width, metadata.height, 15000);
+        
+        const info = db.prepare(`
+            INSERT INTO templates (filename, filepath, width, height, price, is_visible, slots_json) 
+            VALUES (?, ?, ?, ?, ?, 1, '[]')
+        `).run(filename, newPath, metadata.width, metadata.height, 15000);
+        
         return { success: true, id: info.lastInsertRowid };
-    } catch (e) { return { success: false, error: e.message }; }
+    } catch (e) { 
+        return { success: false, error: e.message }; 
+    }
 });
-ipcMain.handle('update-template', async (event, data) => {
-    db.prepare(`UPDATE templates SET price=?, is_visible=?, slots_json=? WHERE id=?`).run(data.price || 0, data.is_visible ? 1 : 0, JSON.stringify(data.slots || []), data.id);
-    return { success: true };
+
+ipcMain.handle('update-template', async (event, data) => { 
+    db.prepare(`UPDATE templates SET price=?, is_visible=?, slots_json=? WHERE id=?`)
+      .run(data.price || 0, data.is_visible ? 1 : 0, JSON.stringify(data.slots || []), data.id); 
+    return { success: true }; 
 });
+
 ipcMain.handle('delete-template', async (event, id) => {
     const tpl = db.prepare('SELECT filepath FROM templates WHERE id=?').get(id);
     if (tpl && fs.existsSync(tpl.filepath)) fs.unlinkSync(tpl.filepath);
@@ -159,67 +200,71 @@ ipcMain.handle('delete-template', async (event, id) => {
 // ==========================================
 // 7. IPC HANDLERS: TRANSAKSI CUSTOMER & ENGINE
 // ==========================================
-
-// [BUG FIXED]: Force Migration untuk file Database Lama yang belum terupdate
-try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
-try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
-
 ipcMain.handle('start-customer-session', async (event, eventId) => {
     const ev = db.prepare('SELECT folder_name FROM events WHERE id=?').get(eventId);
     if (!ev) throw new Error("Event tidak ditemukan!");
-    const now = new Date();
-    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
     const sessionDir = path.join(OUTPUT_PATH, ev.folder_name, `${timeStr}_Customer`);
-    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+    fs.mkdirSync(sessionDir, { recursive: true });
     return sessionDir;
 });
 
 ipcMain.handle('save-capture', async (event, { folderPath, base64Data, index }) => {
-    try { fs.writeFileSync(path.join(folderPath, `raw_${index}.jpg`), Buffer.from(base64Data.split(';base64,').pop(), 'base64')); return { success: true }; } 
-    catch (err) { return { success: false, error: err.message }; }
+    try { 
+        fs.writeFileSync(path.join(folderPath, `raw_${index}.jpg`), Buffer.from(base64Data.split(';base64,').pop(), 'base64')); 
+        return { success: true }; 
+    } catch (err) { 
+        return { success: false, error: err.message }; 
+    }
 });
 
-// [PERBAIKAN]: Menangkap customerName dan price, lalu menyimpan ke Database
 ipcMain.handle('process-images', async (event, { photosBase64, templateId, eventFolder, eventId, customerName, price }) => {
     try {
         const tpl = db.prepare('SELECT * FROM templates WHERE id=?').get(templateId);
         const slots = JSON.parse(tpl.slots_json);
+        
         const compositeOps = await Promise.all(photosBase64.map(async (b64, i) => {
             const s = slots[i] || { width: 400, height: 300, top: 0, left: 0 };
-            return { input: await sharp(Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64')).resize({ width: s.width, height: s.height, fit: 'cover', position: 'center' }).toBuffer(), top: s.top, left: s.left };
+            const imgBuffer = Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+            const resized = await sharp(imgBuffer).resize({ width: s.width, height: s.height, fit: 'cover', position: 'center' }).toBuffer();
+            return { input: resized, top: s.top, left: s.left };
         }));
+        
         compositeOps.push({ input: tpl.filepath, top: 0, left: 0 });
 
         const outputFilename = `print-${Date.now()}.png`;
         const outputPath = path.join(OUTPUT_PATH, eventFolder, outputFilename); 
-
+        
         await sharp({ create: { width: tpl.width, height: tpl.height, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } } })
-          .composite(compositeOps).png().toFile(outputPath);
+            .composite(compositeOps).png().toFile(outputPath);
 
-        // Pencatatan Transaksi ke Database
-        const waktu = new Date().toLocaleString('id-ID');
-        db.prepare(`INSERT INTO sessions (event_id, customer_name, folder_name, waktu, harga_jual, status_cetak) VALUES (?, ?, ?, ?, ?, ?)`).run(eventId, customerName || 'Tanpa Nama', eventFolder, waktu, price || 0, 'TERCETAK');
-
+        db.prepare(`
+            INSERT INTO sessions (event_id, customer_name, folder_name, waktu, harga_jual, status_cetak) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(eventId, customerName || 'Tanpa Nama', eventFolder, new Date().toLocaleString('id-ID'), price || 0, 'TERCETAK');
+        
         const downloadUrl = `http://${serverIP}:${PORT}/download/${eventFolder}/${outputFilename}`;
         return { success: true, printPath: outputPath, qrCode: await qrcode.toDataURL(downloadUrl), downloadUrl };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { 
+        return { success: false, error: err.message }; 
+    }
 });
 
-// [BARU] Logika Agregasi Dashboard Live P&L
+// ==========================================
+// 8. IPC HANDLERS: DASHBOARD P&L
+// ==========================================
 ipcMain.handle('get-dashboard-data', (event, eventId) => {
     const sessions = db.prepare('SELECT * FROM sessions WHERE event_id = ? ORDER BY id DESC').all(eventId);
     const ev = db.prepare('SELECT * FROM events WHERE id=?').get(eventId);
     const settings = db.prepare('SELECT * FROM settings WHERE id=1').get();
-    const hpp_total = (settings.hpp_kertas || 0) + (settings.hpp_tinta || 0) + (settings.biaya_ops || 0);
     
+    const hpp_total = (settings.hpp_kertas || 0) + (settings.hpp_tinta || 0) + (settings.biaya_ops || 0);
     let total_revenue = 0;
-    sessions.forEach(s => { total_revenue += s.harga_jual; });
-    let total_beban_hpp = sessions.length * hpp_total;
-    let saldo_awal = ev?.saldo_awal || 0;
+    
+    sessions.forEach(s => { total_revenue += (s.harga_jual || 0); });
+    
+    const total_beban_hpp = sessions.length * hpp_total;
+    const saldo_awal = ev?.saldo_awal || 0;
     
     return {
         sessions,
@@ -228,16 +273,14 @@ ipcMain.handle('get-dashboard-data', (event, eventId) => {
             total_revenue,
             total_beban_hpp,
             saldo_awal,
-            // Rumus Logis: Saldo Sisa = Deposit Awal - Total Beban HPP Cetak
             sisa_saldo: saldo_awal - total_beban_hpp,
-            // Profit Murni dari acara ini
             laba_bersih: total_revenue - total_beban_hpp
         }
     };
 });
 
 // ==========================================
-// 8. IPC HANDLERS: MIDTRANS
+// 9. IPC HANDLERS: MIDTRANS
 // ==========================================
 ipcMain.handle('create-qris', async (e, amount) => {
     const st = db.prepare('SELECT midtrans_server_key, midtrans_client_key FROM settings WHERE id=1').get();
@@ -246,13 +289,21 @@ ipcMain.handle('create-qris', async (e, amount) => {
         const api = new midtransClient.CoreApi({ isProduction: false, serverKey: st.midtrans_server_key, clientKey: st.midtrans_client_key });
         const oid = `ORD-${Date.now()}`;
         const res = await api.charge({ payment_type: "qris", transaction_details: { order_id: oid, gross_amount: amount }, qris: { acquirer: "gopay" } });
-        const qr = res.actions?.find(a => a.name === 'generate-qr-code');
-        if (qr) return { success: true, orderId: oid, qrUrl: qr.url };
+        const qrAction = res.actions?.find(a => a.name === 'generate-qr-code');
+        if (qrAction) return { success: true, orderId: oid, qrUrl: qrAction.url };
         return { success: false, error: "Gagal Midtrans" };
-    } catch (e) { return { success: false, error: e.message }; }
+    } catch (e) { 
+        return { success: false, error: e.message }; 
+    }
 });
+
 ipcMain.handle('check-payment', async (e, oid) => {
     const st = db.prepare('SELECT midtrans_server_key, midtrans_client_key FROM settings WHERE id=1').get();
-    try { return { success: true, status: (await new midtransClient.CoreApi({ isProduction: false, serverKey: st.midtrans_server_key, clientKey: st.midtrans_client_key }).transaction.status(oid)).transaction_status }; } 
-    catch (e) { return { success: false, error: e.message }; }
+    try { 
+        const api = new midtransClient.CoreApi({ isProduction: false, serverKey: st.midtrans_server_key, clientKey: st.midtrans_client_key });
+        const statusRes = await api.transaction.status(oid);
+        return { success: true, status: statusRes.transaction_status }; 
+    } catch (e) { 
+        return { success: false, error: e.message }; 
+    }
 });

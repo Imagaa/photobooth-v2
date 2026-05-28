@@ -163,6 +163,13 @@ export default function App() {
   useEffect(() => { capturedPhotosRef.current = store.capturedPhotos; }, [store.capturedPhotos]);
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 
+  // [BUG FIXED]: Bersihkan antrean hantu di HP Kasir saat Kiosk kembali ke Awal
+  useEffect(() => {
+    if (store.currentScreen === 'landing' && window.electronAPI.clearPendingPayment) {
+        window.electronAPI.clearPendingPayment();
+    }
+  }, [store.currentScreen]);
+
   useEffect(() => {
     store.fetchSettings(); 
     store.fetchTemplates(); 
@@ -208,7 +215,22 @@ export default function App() {
           }, 1000);
         }
       });
-      window.electronAPI.onRemoteClose(() => { store.resetCustomerSession(); store.setScreen('landing'); });
+
+      // [BUG FIXED]: Perbaikan fitur Tutup Event dari HP Kasir
+      window.electronAPI.onRemoteClose(async () => {
+        const ev = useStore.getState().activeEvent;
+        if(ev) {
+            await window.electronAPI.closeEvent(ev.id);
+            store.fetchActiveEvent();
+            store.fetchRecentEvents();
+            setShowCreateForm(false);
+            setDashboardOpen(false);
+            store.resetCustomerSession();
+            setCustomerName('');
+            setSessionExpiresAt(null);
+            if (window.electronAPI.clearPendingPayment) window.electronAPI.clearPendingPayment();
+        }
+      });
       window.electronAPI.onRemoteRestart(() => { window.location.reload(); });
     }
     
@@ -320,8 +342,19 @@ export default function App() {
         executeStartSessionTimer(); 
     } else if (isOffline || forceStatic) {
         store.setupPayment(customerTemplate.override_price, 'camera');
-        setQrUrl(`http://localhost:3000/qr/${globalData.static_qr_path}`);
+        
+        // [BUG FIXED]: Gunakan store.serverIP agar gambar murni di-render via Network
+        setQrUrl(`http://${store.serverIP}:3000/qr/${globalData.static_qr_path}`);
         setStatusText("Menunggu Kasir Memverifikasi...");
+
+        // [BUG FIXED]: Kirim data ke memori HP Kasir
+        if (window.electronAPI.setPendingPayment) {
+            window.electronAPI.setPendingPayment({ 
+                name: customerName, 
+                template: customerTemplate.filename, 
+                price: customerTemplate.override_price 
+            });
+        }
     } else {
         store.setupPayment(customerTemplate.override_price, 'camera');
         initMidtrans(customerTemplate.override_price);
@@ -743,7 +776,8 @@ export default function App() {
                           <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="retro-btn py-2 text-xs flex-1">UPLOAD GAMBAR QR STATIS</button>
                           {globalData.static_qr_path && (
                               <div className="border-4 border-gray-300 p-1 bg-white w-[100px] h-[100px] flex items-center justify-center shrink-0">
-                                 <img src={`http://localhost:3000/qr/${globalData.static_qr_path}`} className="max-w-full max-h-full object-contain" alt="QR Preview" />
+                                 {/* [BUG FIXED]: QR menggunakan IP Server agar bisa diakses oleh Chromium Kiosk */}
+                                 <img src={`http://${store.serverIP}:3000/qr/${globalData.static_qr_path}`} className="max-w-full max-h-full object-contain" alt="QR Preview" />
                               </div>
                           )}
                       </div>

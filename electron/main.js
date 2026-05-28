@@ -25,9 +25,11 @@ const expressApp = express();
 const PORT = 3000;
 let serverIP = 'localhost';
 
-// Folder Brankas QR Statis (Tahan Banting)
 const STATIC_QR_PATH = path.join(app.getPath('userData'), 'static_qr');
 if (!fs.existsSync(STATIC_QR_PATH)) fs.mkdirSync(STATIC_QR_PATH, { recursive: true });
+
+// [BARU] Memori untuk menyimpan data pelanggan yang sedang antre bayar
+let currentPendingCustomer = null; 
 
 function getLocalIP() {
     const nets = os.networkInterfaces();
@@ -50,41 +52,63 @@ app.whenReady().then(() => {
 
     expressApp.use('/download', express.static(OUTPUT_PATH));
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
-    expressApp.use('/qr', express.static(STATIC_QR_PATH)); // Expose folder QR Statis
+    expressApp.use('/qr', express.static(STATIC_QR_PATH));
 
     // ==========================================
-    // UI WEB REMOTE CASHIER (UNTUK HP ADMIN)
+    // UI WEB REMOTE CASHIER (DENGAN LIST ANTREAN)
     // ==========================================
     expressApp.get('/admin', (req, res) => {
         res.send(`
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>SayGumi! Remote Cashier</title>
+                <title>SayGumi! Cashier Hub</title>
                 <style>
-                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; text-align: center; }
-                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: 4px solid #000; cursor: pointer; text-transform: uppercase; }
-                    .btn-verify { background: #4CAF50; color: #000; }
-                    .btn-danger { background: #f44336; color: #fff; }
+                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; }
+                    .card { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #555; text-align: center; }
+                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; border-radius: 5px; }
+                    .btn-verify { background: #4CAF50; color: white; margin-top: 20px; }
+                    .btn-danger { background: #f44336; color: white; }
                     .btn-warning { background: #ffeb3b; color: #000; }
                 </style>
+                <script>
+                    async function loadPending() {
+                        try {
+                            const res = await fetch('/api/pending');
+                            const data = await res.json();
+                            const container = document.getElementById('pending-container');
+                            if(!data || !data.name) {
+                                container.innerHTML = '<p style="text-align:center; color:#888; margin: 40px 0;">Tidak ada pelanggan yang menunggu verifikasi pembayaran.</p>';
+                            } else {
+                                container.innerHTML = '<div class="card"><h2 style="margin-top:0;">👤 ' + data.name + '</h2><p style="color:#aaa;">Frame: ' + data.template + '</p><h1 style="color:#4CAF50; font-size: 32px; margin: 10px 0;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button class="btn btn-verify" onclick="verify()">✅ Verifikasi & Loloskan</button></div>';
+                            }
+                        } catch(e) {}
+                    }
+                    async function verify() { await fetch('/api/verify'); loadPending(); }
+                    setInterval(loadPending, 2000); // Cek antrean setiap 2 detik
+                    window.onload = loadPending;
+                </script>
             </head>
             <body>
-                <h2>📸 SayGumi! Cashier</h2>
-                <p style="color: #aaa; margin-bottom: 30px;">Pastikan uang masuk sebelum klik Verifikasi.</p>
-                
-                <button class="btn btn-verify" onclick="fetch('/api/verify').then(()=>alert('Pelanggan diloloskan!'))">✅ Loloskan Pelanggan</button>
-                <hr style="border-color: #444; margin: 30px 0;" />
-                <h3 style="color: #aaa;">Remote Control Mesin</h3>
-                <button class="btn btn-warning" onclick="if(confirm('Tutup sesi ini secara paksa?')) fetch('/api/close')">🔒 Tutup Sesi Berjalan</button>
+                <h2 style="text-align:center; margin-bottom: 30px;">📸 SayGumi! Cashier</h2>
+                <h3 style="color: #aaa;">Antrean Pembayaran:</h3>
+                <div id="pending-container">Memuat...</div>
+
+                <hr style="border-color: #444; margin: 40px 0;" />
+                <h3 style="color: #aaa;">Remote Control Mesin:</h3>
+                <button class="btn btn-warning" onclick="if(confirm('Akhiri dan Tutup Event Berjalan?')) fetch('/api/close')">🔒 Tutup Sesi Event</button>
                 <button class="btn btn-danger" onclick="if(confirm('Restart aplikasi Photobooth?')) fetch('/api/restart')">🔄 Restart Aplikasi</button>
             </body>
             </html>
         `);
     });
 
-    // Endpoint yang ditembak dari HP Kasir
-    expressApp.get('/api/verify', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-verify'); res.json({ success: true }); });
+    expressApp.get('/api/pending', (req, res) => res.json(currentPendingCustomer || {}));
+    expressApp.get('/api/verify', (req, res) => { 
+        currentPendingCustomer = null; 
+        if(mainWindow) mainWindow.webContents.send('remote-verify'); 
+        res.json({ success: true }); 
+    });
     expressApp.get('/api/close', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-close'); res.json({ success: true }); });
     expressApp.get('/api/restart', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-restart'); res.json({ success: true }); });
 
@@ -99,10 +123,9 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280, height: 720, 
-        fullscreen: true,       // KIOSK MODE: Layar Penuh menutupi taskbar
+        fullscreen: true,       // Layar Penuh menutupi taskbar
         autoHideMenuBar: true,  // Menyembunyikan file, edit, view
         frame: false,           // Menghapus tombol silang/minimize Windows
-        kiosk: true,            // Kunci layar
         webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
     });
     if (process.env.NODE_ENV === 'development') { 
@@ -124,16 +147,25 @@ ipcMain.handle('save-settings', (event, data) => {
     const stmt = db.prepare(`
         UPDATE settings SET 
         hpp_kertas=?, hpp_tinta=?, biaya_ops=?, 
-        midtrans_server_key=?, midtrans_client_key=?, app_mode=? 
+        midtrans_server_key=?, midtrans_client_key=?, app_mode=?,
+        static_qr_path=?, force_static_qr=?, gdrive_folder_id=?,
+        selected_camera=?, selected_printer=?, hw_bypass_mode=?
         WHERE id=1
     `);
+    
     stmt.run(
         data.hpp_kertas || 0, 
         data.hpp_tinta || 0, 
         data.biaya_ops || 0, 
         data.midtrans_server_key || '', 
         data.midtrans_client_key || '', 
-        data.app_mode || 'online'
+        data.app_mode || 'online',
+        data.static_qr_path || '',
+        data.force_static_qr || 0,
+        data.gdrive_folder_id || '',
+        data.selected_camera || '',
+        data.selected_printer || '',
+        data.hw_bypass_mode || 0
     );
     return true;
 });
@@ -366,3 +398,6 @@ ipcMain.handle('select-static-qr', async () => {
     
     return filename; 
 });
+
+ipcMain.handle('set-pending-payment', (e, data) => { currentPendingCustomer = data; return true; });
+ipcMain.handle('clear-pending-payment', (e) => { currentPendingCustomer = null; return true; });

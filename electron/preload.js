@@ -9,9 +9,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     checkHardware: () => ipcRenderer.invoke('check-hardware'),
     selectStaticQR: () => ipcRenderer.invoke('select-static-qr'),
+    
+    // Sinyal dari HP Kasir ke Kiosk (React)
     onRemoteVerify: (callback) => ipcRenderer.on('remote-verify', () => callback()),
     onRemoteClose: (callback) => ipcRenderer.on('remote-close', () => callback()),
     onRemoteRestart: (callback) => ipcRenderer.on('remote-restart', () => callback()),
+    onRemoteRetake: (callback) => ipcRenderer.on('remote-retake', (e, data) => callback(data)),
+    onRemoteReprint: (callback) => ipcRenderer.on('remote-reprint', (e, data) => callback(data)),
     
     setPendingPayment: (data) => ipcRenderer.invoke('set-pending-payment', data),
     clearPendingPayment: () => ipcRenderer.invoke('clear-pending-payment'),
@@ -22,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createEvent: (data) => ipcRenderer.invoke('create-event', data),
     closeEvent: (eventId) => ipcRenderer.invoke('close-event', eventId),
     
+    // Menghapus data SQLite & Folder Fisik
+    deleteEvent: (data) => ipcRenderer.invoke('delete-event', data),
+    
     getDashboardData: (eventId) => ipcRenderer.invoke('get-dashboard-data', eventId),
 
     getTemplates: () => ipcRenderer.invoke('get-templates'),
@@ -30,12 +37,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateTemplate: (data) => ipcRenderer.invoke('update-template', data),
     deleteTemplate: (id) => ipcRenderer.invoke('delete-template', id),
 
-    // [REVISI] Menerima objek data (berisi eventId dan customerName)
     startCustomerSession: (data) => ipcRenderer.invoke('start-customer-session', data),
     saveCapture: (data) => ipcRenderer.invoke('save-capture', data),
     processImages: (data) => ipcRenderer.invoke('process-images', data),
-    
-    // [BARU] Menyimpan file video sesi (format webm)
     saveVideo: (data) => ipcRenderer.invoke('save-video', data),
     
     createQris: (amount) => ipcRenderer.invoke('create-qris', amount),

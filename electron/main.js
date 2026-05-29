@@ -46,55 +46,162 @@ app.whenReady().then(() => {
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
     expressApp.use('/qr', express.static(STATIC_QR_PATH));
 
+    // [ROMBAK TOTAL] Antarmuka Gameboy (Portrait) & PS Vita (Landscape)
     expressApp.get('/admin', (req, res) => {
         res.send(`
             <html>
             <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>SayGumi! Cashier Hub</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+                <title>SayGumi! Cashier</title>
                 <style>
-                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; }
-                    .card { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #555; text-align: center; }
-                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; border-radius: 5px; }
-                    .btn-verify { background: #4CAF50; color: white; margin-top: 20px; }
-                    .btn-danger { background: #f44336; color: white; }
-                    .btn-warning { background: #ffeb3b; color: #000; }
+                    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+                    :root { --primary: #007CC3; --secondary: #FFD453; --accent: #FF3B67; --bg: #007CC3; }
+                    body.theme-candy { --primary: #007CC3; --secondary: #FFD453; --accent: #FF3B67; --bg: #007CC3; }
+                    body.theme-bumblebee { --primary: #E5A93B; --secondary: #FAF2E3; --accent: #754A05; --bg: #E5A93B; }
+                    body.theme-neon { --primary: #1E1F22; --secondary: #7F56FF; --accent: #80FF56; --bg: #1E1F22; }
+                    body.theme-fall { --primary: #354E47; --secondary: #FAF2E3; --accent: #DB627A; --bg: #354E47; }
+                    
+                    body { font-family: 'Press Start 2P', cursive; background: var(--bg); color: #fff; margin:0; overflow: hidden; transition: background-color 0.5s ease; user-select: none; }
+                    
+                    /* Gameboy Portrait Base */
+                    .container { display: flex; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; gap: 15px; }
+                    .monitor { background: #111; border: 6px solid var(--secondary); flex: 1; padding: 15px; overflow-y: auto; color: var(--secondary); box-shadow: inset 4px 4px 0 #000; display: flex; flex-direction: column; transition: border-color 0.5s, color 0.5s; }
+                    .d-pad, .action-buttons { display: flex; flex-direction: column; gap: 10px; }
+                    
+                    /* PS Vita Landscape Base */
+                    @media (orientation: landscape) {
+                        .container { flex-direction: row; align-items: stretch; justify-content: center; padding: 20px; }
+                        .monitor { flex: 2; margin: 0 10px; }
+                        .d-pad, .action-buttons { flex: 1; justify-content: center; }
+                    }
+
+                    .btn { background: var(--secondary); color: #000; border: 4px solid #000; font-family: 'Press Start 2P'; padding: 15px; font-size: 10px; cursor: pointer; text-transform: uppercase; box-shadow: 4px 4px 0 #000; text-align: center; transition: background-color 0.5s; }
+                    .btn:active { transform: translateY(2px); box-shadow: 2px 2px 0 #000; }
+                    .btn-danger { background: var(--accent); color: #fff; }
+                    .btn-primary { background: var(--primary); color: #fff; }
+                    
+                    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; padding: 15px; }
+                    .modal.active { display: flex; }
+                    .modal-content { background: var(--primary); border: 6px solid var(--secondary); flex: 1; overflow-y: auto; padding: 10px; margin-bottom: 15px; transition: background-color 0.5s, border-color 0.5s; }
+                    .history-item { background: #fff; color: #000; padding: 10px; margin-bottom: 10px; border: 4px solid #000; font-size: 10px; display:flex; flex-direction: column; gap: 10px; }
+                    .history-item-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #ccc; padding-bottom: 5px; }
+                    .history-actions { display: flex; gap: 10px; }
+                    .history-actions button { flex: 1; padding: 10px; font-size: 8px; }
                 </style>
                 <script>
-                    async function loadPending() {
+                    async function fetchPending() {
                         try {
                             const res = await fetch('/api/pending');
                             const data = await res.json();
-                            const container = document.getElementById('pending-container');
-                            if(!data || !data.name) {
-                                container.innerHTML = '<p style="text-align:center; color:#888; margin: 40px 0;">Tidak ada pelanggan yang menunggu verifikasi pembayaran.</p>';
+                            document.body.className = 'theme-' + (data.active_theme || 'candy');
+                            document.getElementById('event-name').innerText = '[ LIVE: ' + (data.event_name || 'Tidak Ada Sesi') + ' ]';
+                            
+                            const m = document.getElementById('monitor-content');
+                            if(!data.name) {
+                                m.innerHTML = '<div style="text-align:center; margin-top:50px; opacity:0.5; font-size:12px; line-height:2;">-- SIAP --<br>TIDAK ADA ANTREAN</div>';
                             } else {
-                                container.innerHTML = '<div class="card"><h2 style="margin-top:0;">👤 ' + data.name + '</h2><p style="color:#aaa;">Frame: ' + data.template + '</p><h1 style="color:#4CAF50; font-size: 32px; margin: 10px 0;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button class="btn btn-verify" onclick="verify()">✅ Verifikasi & Loloskan</button></div>';
+                                m.innerHTML = '<div style="text-align:center; margin-top:10px;"><p style="font-size:10px; color:#fff;">Pelanggan:</p><p style="font-size:16px;">' + data.name + '</p><p style="font-size:10px; color:#fff; margin-top:20px;">Tagihan:</p><p style="font-size:20px; color:#fff;">Rp ' + data.price.toLocaleString('id-ID') + '</p></div>';
                             }
                         } catch(e) {}
                     }
-                    async function verify() { await fetch('/api/verify'); loadPending(); }
-                    setInterval(loadPending, 2000);
-                    window.onload = loadPending;
+                    setInterval(fetchPending, 2000);
+                    window.onload = fetchPending;
+                    
+                    async function verify() { await fetch('/api/verify'); fetchPending(); }
+                    
+                    async function openHistory() {
+                        document.getElementById('history-modal').classList.add('active');
+                        document.getElementById('history-list').innerHTML = '<div style="text-align:center; color:#fff; margin-top:20px;">Memuat data...</div>';
+                        try {
+                            const res = await fetch('/api/history');
+                            const data = await res.json();
+                            const list = document.getElementById('history-list');
+                            list.innerHTML = '';
+                            if(data.length === 0) { list.innerHTML = '<div style="text-align:center; color:#fff; margin-top:20px;">Belum ada penjualan.</div>'; return; }
+                            
+                            data.forEach(s => {
+                                list.innerHTML += \`
+                                    <div class="history-item">
+                                        <div class="history-item-header">
+                                            <span>\${s.customer_name}</span>
+                                            <span style="color:var(--primary);">Rp \${(s.harga_jual/1000)}k</span>
+                                        </div>
+                                        <div style="font-size:8px; color:#666;">\${s.waktu} | Status: \${s.status_cetak}</div>
+                                        <div class="history-actions">
+                                            <button class="btn btn-primary" onclick="remoteRetake(\${s.id}, '\${s.customer_name}')">[ RETAKE ]</button>
+                                            <button class="btn" onclick="remoteReprint(\${s.id}, '\${s.customer_name}')">[ REPRINT ]</button>
+                                        </div>
+                                    </div>\`;
+                            });
+                        } catch(e) { document.getElementById('history-list').innerHTML = '<div style="text-align:center; color:#fff;">Error memuat data.</div>'; }
+                    }
+                    function closeHistory() { document.getElementById('history-modal').classList.remove('active'); }
+                    
+                    async function remoteRetake(id, name) { if(confirm('Mulai Retake untuk pelanggan: ' + name + '? Aplikasi akan otomatis membuka kamera.')) { await fetch('/api/remote-retake/'+id); closeHistory(); } }
+                    async function remoteReprint(id, name) { if(confirm('Cetak ulang foto untuk: ' + name + '?')) { await fetch('/api/remote-reprint/'+id); alert('Perintah cetak ulang dikirim!'); } }
                 </script>
             </head>
             <body>
-                <h2 style="text-align:center; margin-bottom: 30px;">📸 SayGumi! Cashier</h2>
-                <h3 style="color: #aaa;">Antrean Pembayaran:</h3>
-                <div id="pending-container">Memuat...</div>
-                <hr style="border-color: #444; margin: 40px 0;" />
-                <h3 style="color: #aaa;">Remote Control Mesin:</h3>
-                <button class="btn btn-warning" onclick="if(confirm('Akhiri dan Tutup Event Berjalan?')) fetch('/api/close')">🔒 Tutup Sesi Event</button>
-                <button class="btn btn-danger" onclick="if(confirm('Restart aplikasi Photobooth?')) fetch('/api/restart')">🔄 Restart Aplikasi</button>
+                <div class="container">
+                    <div class="d-pad">
+                        <button class="btn btn-danger" onclick="if(confirm('Tutup Sesi Event Berjalan?')) fetch('/api/close')">[ TUTUP EVENT ]</button>
+                        <button class="btn btn-danger" onclick="if(confirm('Restart Mesin Kiosk?')) fetch('/api/restart')">[ RESTART MESIN ]</button>
+                    </div>
+                    
+                    <div class="monitor">
+                        <div id="event-name" style="text-align:center; font-size:10px; margin-bottom:15px; border-bottom:4px solid currentColor; padding-bottom:10px; line-height:1.5;">Loading...</div>
+                        <div id="monitor-content" style="flex:1;"></div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn" style="padding:25px 15px; font-size:14px;" onclick="verify()">[ VERIFIKASI ]</button>
+                        <button class="btn btn-primary" onclick="openHistory()">[ RIWAYAT PESANAN ]</button>
+                    </div>
+                </div>
+                
+                <div class="modal" id="history-modal">
+                    <h2 style="color:var(--secondary); text-align:center; font-size:14px; margin-bottom:15px; text-shadow:2px 2px #000;">[ RIWAYAT PESANAN ]</h2>
+                    <div class="modal-content" id="history-list"></div>
+                    <button class="btn btn-danger" onclick="closeHistory()">[ KEMBALI ]</button>
+                </div>
             </body>
             </html>
         `);
     });
 
-    expressApp.get('/api/pending', (req, res) => res.json(currentPendingCustomer || {}));
+    expressApp.get('/api/pending', (req, res) => {
+        const st = db.prepare('SELECT active_theme FROM settings WHERE id=1').get();
+        const ev = db.prepare('SELECT nama_event FROM events WHERE is_active=1 ORDER BY id DESC LIMIT 1').get();
+        res.json({
+            ...(currentPendingCustomer || {}),
+            active_theme: st?.active_theme || 'candy',
+            event_name: ev?.nama_event || 'Tidak Ada Sesi'
+        });
+    });
+    
     expressApp.get('/api/verify', (req, res) => { currentPendingCustomer = null; if(mainWindow) mainWindow.webContents.send('remote-verify'); res.json({ success: true }); });
     expressApp.get('/api/close', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-close'); res.json({ success: true }); });
     expressApp.get('/api/restart', (req, res) => { if(mainWindow) mainWindow.webContents.send('remote-restart'); res.json({ success: true }); });
+
+    // [BARU] API Kasir: Riwayat Pesanan
+    expressApp.get('/api/history', (req, res) => {
+        const ev = db.prepare('SELECT id FROM events WHERE is_active=1 ORDER BY id DESC LIMIT 1').get();
+        if(!ev) return res.json([]);
+        const sessions = db.prepare('SELECT * FROM sessions WHERE event_id=? ORDER BY id DESC').all(ev.id);
+        res.json(sessions);
+    });
+
+    // [BARU] API Kasir: Remote Retake & Reprint
+    expressApp.get('/api/remote-retake/:id', (req, res) => {
+        const session = db.prepare('SELECT * FROM sessions WHERE id=?').get(req.params.id);
+        if(mainWindow && session) mainWindow.webContents.send('remote-retake', session);
+        res.json({ success: true });
+    });
+    expressApp.get('/api/remote-reprint/:id', (req, res) => {
+        const session = db.prepare('SELECT * FROM sessions WHERE id=?').get(req.params.id);
+        if(mainWindow && session) mainWindow.webContents.send('remote-reprint', session);
+        res.json({ success: true });
+    });
 
     expressApp.listen(PORT, '0.0.0.0', () => console.log(`[LOCAL SERVER] Menyala di http://${serverIP}:${PORT}`));
     createWindow();
@@ -119,7 +226,6 @@ ipcMain.handle('get-server-ip', () => serverIP);
 
 ipcMain.handle('get-settings', () => db.prepare('SELECT * FROM settings WHERE id=1').get());
 
-// [REVISI] Menyimpan konfigurasi active_theme ke dalam database SQLite
 ipcMain.handle('save-settings', (event, data) => {
     db.prepare(`
         UPDATE settings SET 
@@ -154,6 +260,28 @@ ipcMain.handle('select-static-qr', async () => {
 ipcMain.handle('get-active-event', () => db.prepare('SELECT * FROM events WHERE is_active=1 ORDER BY id DESC LIMIT 1').get());
 ipcMain.handle('get-recent-events', () => db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 10').all());
 ipcMain.handle('reopen-event', (event, eventId) => { db.prepare('UPDATE events SET is_active=0').run(); db.prepare('UPDATE events SET is_active=1 WHERE id=?').run(eventId); return { success: true }; });
+
+// [BARU & BRUTAL] Handler Hapus Sesi Event Fisik & Database
+ipcMain.handle('delete-event', async (event, { eventId, deleteLocal, deleteGdrive }) => {
+    try {
+        const ev = db.prepare('SELECT folder_name FROM events WHERE id=?').get(eventId);
+        if (ev) {
+            if (deleteLocal) {
+                const localPath = path.join(OUTPUT_PATH, ev.folder_name);
+                if (fs.existsSync(localPath)) fs.rmSync(localPath, { recursive: true, force: true });
+            }
+            if (deleteGdrive) {
+                // Logika placeholder GDrive. Implementasi API GDrive butuh service account.
+                console.log("[DRIVE-SIM] Meminta penghapusan cloud untuk folder:", ev.folder_name);
+            }
+        }
+        db.prepare('DELETE FROM sessions WHERE event_id=?').run(eventId);
+        db.prepare('DELETE FROM events WHERE id=?').run(eventId);
+        return { success: true };
+    } catch(err) { 
+        return { success: false, error: err.message }; 
+    }
+});
 
 ipcMain.handle('create-event', (event, data) => {
     try {
@@ -192,7 +320,6 @@ ipcMain.handle('update-template', async (event, data) => {
 
 ipcMain.handle('delete-template', async (event, id) => { const tpl = db.prepare('SELECT filepath FROM templates WHERE id=?').get(id); if (tpl && fs.existsSync(tpl.filepath)) fs.unlinkSync(tpl.filepath); db.prepare('DELETE FROM templates WHERE id=?').run(id); return { success: true }; });
 
-// [REVISI MUTLAK] Membuat struktur folder dinamis: YYYY-MM-DD_HH-MM-SS_Nama_Customer
 ipcMain.handle('start-customer-session', async (event, { eventId, customerName }) => {
     const ev = db.prepare('SELECT folder_name FROM events WHERE id=?').get(eventId);
     
@@ -206,7 +333,7 @@ ipcMain.handle('start-customer-session', async (event, { eventId, customerName }
     const sessionDir = path.join(OUTPUT_PATH, ev.folder_name, folderName);
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
     
-    return sessionDir; // Path folder mutlak dikembalikan ke React untuk menyimpan RAW dan Video
+    return sessionDir; 
 });
 
 ipcMain.handle('save-capture', async (event, { folderPath, base64Data, index }) => {
@@ -214,14 +341,9 @@ ipcMain.handle('save-capture', async (event, { folderPath, base64Data, index }) 
     catch (err) { return { success: false, error: err.message }; }
 });
 
-// [BARU] Handler untuk menelan file video dari RAM React ke Disk fisik 
 ipcMain.handle('save-video', async (event, { folderPath, buffer }) => {
-    try {
-        fs.writeFileSync(path.join(folderPath, 'video_session.webm'), Buffer.from(buffer));
-        return { success: true };
-    } catch (err) { 
-        return { success: false, error: err.message }; 
-    }
+    try { fs.writeFileSync(path.join(folderPath, 'video_session.webm'), Buffer.from(buffer)); return { success: true }; } 
+    catch (err) { return { success: false, error: err.message }; }
 });
 
 ipcMain.handle('process-images', async (event, { photosBase64, templateId, eventFolder, eventId, customerName, price }) => {

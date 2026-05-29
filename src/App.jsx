@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { useStore } from './store/useStore';
 
 // ==========================================
@@ -36,40 +35,34 @@ function RetroDialog() {
 }
 
 // ==========================================
-// VIRTUAL KEYBOARD (TOUCHSCREEN)
+// VIRTUAL KEYBOARD
 // ==========================================
 function VirtualKeyboard({ value, onChange, onEnter }) {
-  const rows = [
-    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-    ['Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACKSPACE']
-  ];
+  const rows = [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['Z','X','C','V','B','N','M','BACKSPACE']];
   const handleKeyPress = (key) => {
-    if (key === 'BACKSPACE') { onChange(value.slice(0, -1)); } 
-    else if (key === 'SPACE') { onChange(value + ' '); } 
-    else { onChange(value + key); }
+    if (key === 'BACKSPACE') onChange(value.slice(0, -1)); 
+    else if (key === 'SPACE') onChange(value + ' '); 
+    else onChange(value + key);
   };
   return (
-    <div className="p-6 border-8 border-black mt-8 w-full max-w-4xl mx-auto select-none" style={{ backgroundColor: 'var(--color-primary)', boxShadow: '12px 12px 0 0 var(--color-secondary)' }}>
+    <div className="p-4 border-8 border-black mt-6 w-full max-w-2xl mx-auto shadow-[8px_8px_0_0_var(--color-secondary)]" style={{ backgroundColor: 'var(--color-primary)' }}>
       {rows.map((row, i) => (
-        <div key={i} className="flex justify-center gap-2 mb-3">
+        <div key={i} className="flex justify-center gap-1 mb-2">
           {row.map(key => (
-            <button key={key} onClick={() => handleKeyPress(key)} className={`border-b-4 border-black active:border-b-0 active:translate-y-1 font-pixel text-xs md:text-sm p-3 transition-all ${key === 'BACKSPACE' ? 'px-6 text-white' : 'bg-white hover:bg-gray-200 text-black w-12 h-12 md:w-16 md:h-16 flex items-center justify-center'}`} style={key === 'BACKSPACE' ? { backgroundColor: 'var(--color-accent)' } : {}}>
-              {key === 'BACKSPACE' ? 'DEL' : key}
-            </button>
+            <button key={key} onClick={() => handleKeyPress(key)} className={`border-b-4 border-black font-pixel text-xs p-2 md:p-3 transition-all ${key === 'BACKSPACE' ? 'bg-[#FF3B67] text-white' : 'bg-white text-black'}`}>{key === 'BACKSPACE' ? 'DEL' : key}</button>
           ))}
         </div>
       ))}
-      <div className="flex justify-center gap-4 mt-2">
-        <button onClick={() => handleKeyPress('SPACE')} className="bg-white hover:bg-gray-200 border-b-4 border-black active:border-b-0 active:translate-y-1 font-pixel text-sm px-24 py-3 text-black">SPACE</button>
-        <button onClick={onEnter} className="border-b-4 border-black active:border-b-0 active:translate-y-1 font-pixel text-sm px-8 py-3 text-black" style={{ backgroundColor: 'var(--color-secondary)' }}>ENTER / LANJUT</button>
+      <div className="flex justify-center gap-2 mt-2">
+        <button onClick={() => handleKeyPress('SPACE')} className="bg-white px-12 py-3 font-pixel text-sm border-b-4 border-black active:border-b-0 active:translate-y-1">SPACE</button>
+        <button onClick={onEnter} className="font-pixel text-sm px-6 py-3 border-b-4 border-black active:border-b-0 active:translate-y-1" style={{ backgroundColor: 'var(--color-secondary)' }}>ENTER</button>
       </div>
     </div>
   );
 }
 
 // ==========================================
-// VISUAL TEMPLATE EDITOR (SUPPORT TOUCH)
+// VISUAL TEMPLATE EDITOR
 // ==========================================
 function VisualEditor({ template, onSave, onCancel }) {
   const initialSlots = typeof template.slots === 'string' ? JSON.parse(template.slots) : (template.slots || []);
@@ -138,8 +131,8 @@ function VisualEditor({ template, onSave, onCancel }) {
           </div>
         </div>
         <div className="p-4 border-t-8 border-black flex gap-2">
-          <button onClick={onCancel} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-accent)' }}>BATAL</button>
-          <button onClick={() => onSave(slots)} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-primary)' }}>SIMPAN</button>
+          <button onClick={onCancel} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>
+          <button onClick={() => onSave(slots)} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-primary)' }}>[ SIMPAN ]</button>
         </div>
       </div>
     </div>
@@ -165,6 +158,12 @@ export default function App() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newEventData, setNewEventData] = useState({ nama_event: '', saldo_awal: '' });
   const [selectedEventTemplates, setSelectedEventTemplates] = useState([]); 
+
+  // [BARU] Modal Delete Session
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, event: null, local: true, gdrive: false });
+
+  // [BARU] Sinyal Remote Retake dari Kasir
+  const [isRemoteRetake, setIsRemoteRetake] = useState(false);
 
   const [customerTab, setCustomerTab] = useState('portrait'); 
   const [customerTemplate, setCustomerTemplate] = useState(null);
@@ -195,15 +194,42 @@ export default function App() {
   useEffect(() => { capturedPhotosRef.current = store.capturedPhotos; }, [store.capturedPhotos]);
   useEffect(() => { currentScreenRef.current = store.currentScreen; }, [store.currentScreen]);
 
-  // Transisi Tema Mulus
-  useEffect(() => {
-      document.body.className = globalData.active_theme ? `theme-${globalData.active_theme}` : 'theme-candy';
-  }, [globalData.active_theme]);
+  // Transisi Tema
+  useEffect(() => { document.body.className = `theme-${globalData.active_theme || 'candy'}`; }, [globalData.active_theme]);
 
+  // Shortcut Keyboard
+  const themesList = ['candy', 'bumblebee', 'neon', 'fall'];
   useEffect(() => {
-    if (store.currentScreen === 'landing' && window.electronAPI.clearPendingPayment) window.electronAPI.clearPendingPayment();
-  }, [store.currentScreen]);
+    const handleKeyDown = async (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') { setTemplateOpen(p=>!p); setGlobalOpen(false); setDashboardOpen(false); }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') { setDashboardOpen(p=>!p); setGlobalOpen(false); setTemplateOpen(false); fetchDashboardData(); }
+      
+      if (e.ctrlKey && e.key === 'ArrowUp') {
+          e.preventDefault();
+          setGlobalData(prev => {
+              const idx = themesList.indexOf(prev.active_theme || 'candy');
+              const nextTheme = themesList[(idx + 1) % themesList.length];
+              const newData = { ...prev, active_theme: nextTheme };
+              window.electronAPI.saveSettings(newData).then(() => store.fetchSettings());
+              return newData;
+          });
+      }
+      if (e.ctrlKey && e.key === 'ArrowDown') {
+          e.preventDefault();
+          setGlobalData(prev => {
+              const idx = themesList.indexOf(prev.active_theme || 'candy');
+              const prevTheme = themesList[(idx - 1 + themesList.length) % themesList.length];
+              const newData = { ...prev, active_theme: prevTheme };
+              window.electronAPI.saveSettings(newData).then(() => store.fetchSettings());
+              return newData;
+          });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
+  // Inisialisasi API & Hardware
   useEffect(() => {
     store.fetchSettings(); store.fetchTemplates(); store.fetchServerIP(); store.fetchActiveEvent(); 
     window.electronAPI.getRecentEvents().then(events => { store.fetchRecentEvents(); setShowCreateForm(events?.length === 0); });
@@ -213,7 +239,7 @@ export default function App() {
       try {
         const hw = await window.electronAPI.checkHardware();
         setAvailablePrinters(hw.printers || []);
-        msg += hw.printers?.length > 0 ? `[ PRINTER: OK ] ` : `[ PRINTER: TIDAK TERDETEKSI ] `;
+        msg += hw.printers?.length > 0 ? `[ PRINTER: OK ] ` : `[ PRINTER: ERROR ] `;
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devices.filter(device => device.kind === 'videoinput');
         setAvailableCameras(videoInputs);
@@ -238,47 +264,17 @@ export default function App() {
         }
       });
       window.electronAPI.onRemoteRestart(() => { window.location.reload(); });
+      
+      // [RESEPTOR] Sinyal Remote Retake & Reprint dari Kasir
+      window.electronAPI.onRemoteRetake((session) => {
+         store.setScreen('template');
+         setCustomerName(session.customer_name);
+         setIsRemoteRetake(true);
+      });
+      window.electronAPI.onRemoteReprint((session) => {
+         store.showDialog(`[ SYSTEM LOG ]\nMencetak ulang foto untuk pelanggan: ${session.customer_name}. Perintah telah dikirim ke mesin cetak.`, 'alert');
+      });
     }
-    
-    // ==========================================
-    // KEYBOARD SHORTCUTS (TERMASUK GANTI TEMA)
-    // ==========================================
-    const themesList = ['candy', 'bumblebee', 'neon', 'fall'];
-    const handleKeyDown = async (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { setGlobalOpen(p=>!p); setTemplateOpen(false); setDashboardOpen(false); }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') { setTemplateOpen(p=>!p); setGlobalOpen(false); setDashboardOpen(false); }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') { setDashboardOpen(p=>!p); setGlobalOpen(false); setTemplateOpen(false); fetchDashboardData(); }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
-        const ev = await window.electronAPI.getActiveEvent();
-        if (ev) {
-          const isConfirmed = await store.showDialog(`TUTUP event "${ev.nama_event}" secara permanen?`, 'confirm');
-          if (isConfirmed) { await window.electronAPI.closeEvent(ev.id); store.fetchActiveEvent(); store.fetchRecentEvents(); setShowCreateForm(false); setDashboardOpen(false); }
-        }
-      }
-
-      // SHORTCUT: GANTI TEMA (Ctrl + Arrow Up/Down) - Auto Save to Database
-      if (e.ctrlKey && e.key === 'ArrowUp') {
-          e.preventDefault();
-          setGlobalData(prev => {
-              const idx = themesList.indexOf(prev.active_theme || 'candy');
-              const nextTheme = themesList[(idx + 1) % themesList.length];
-              const newData = { ...prev, active_theme: nextTheme };
-              window.electronAPI.saveSettings(newData).then(() => store.fetchSettings());
-              return newData;
-          });
-      }
-      if (e.ctrlKey && e.key === 'ArrowDown') {
-          e.preventDefault();
-          setGlobalData(prev => {
-              const idx = themesList.indexOf(prev.active_theme || 'candy');
-              const prevTheme = themesList[(idx - 1 + themesList.length) % themesList.length];
-              const newData = { ...prev, active_theme: prevTheme };
-              window.electronAPI.saveSettings(newData).then(() => store.fetchSettings());
-              return newData;
-          });
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => { if (store.settings) setGlobalData(store.settings); }, [store.settings]);
@@ -321,8 +317,7 @@ export default function App() {
     if(res.success) { setFinalResult(res); store.setScreen('result'); } else { await store.showDialog("Gagal Merender: " + res.error); store.setScreen('landing'); }
   };
 
-  const saveGlobalSettings = async (e) => { e.preventDefault(); await window.electronAPI.saveSettings(globalData); store.fetchSettings(); await store.showDialog("Pengaturan Berhasil Disimpan!"); setGlobalOpen(false); };
-  const uploadMasterTemplate = async () => { const filePath = await window.electronAPI.openFileDialog(); if (filePath) { const res = await window.electronAPI.saveNewTemplate({ tempPath: filePath }); if (res.success) store.fetchTemplates(); } };
+  const saveGlobalSettings = async () => { await window.electronAPI.saveSettings(globalData); store.fetchSettings(); await store.showDialog("Pengaturan Berhasil Disimpan!"); setGlobalOpen(false); };
   const updateMasterAttr = async (tpl, field, value) => { await window.electronAPI.updateTemplate({ ...tpl, [field]: value }); store.fetchTemplates(); };
 
   // ==========================================
@@ -336,13 +331,21 @@ export default function App() {
     }
     setCustomerTemplate(tpl);
     store.setCapturedPhotos(Array(slotsArr.length).fill(null));
+    
+    // Bypass Payment jika ini adalah sesi Remote Retake dari Kasir
+    if (isRemoteRetake) {
+        const folder = await window.electronAPI.startCustomerSession({ eventId: store.activeEvent.id, customerName: customerName });
+        store.setSessionFolder(folder);
+        setIsRemoteRetake(false); // Matikan flag setelah berhasil bypass
+        executeStartSessionTimer();
+        return;
+    }
+
     store.setScreen('input_name');
   };
 
   const submitNameAndPay = async () => {
     if(!customerName) return await store.showDialog("Nama wajib diisi sebelum melanjutkan!");
-    
-    // [PEMBUATAN FOLDER DINAMIS DENGAN NAMA CUSTOMER]
     const folder = await window.electronAPI.startCustomerSession({ eventId: store.activeEvent.id, customerName: customerName });
     store.setSessionFolder(folder);
 
@@ -354,7 +357,7 @@ export default function App() {
     else if (isOffline || forceStatic) {
         store.setupPayment(customerTemplate.override_price, 'camera');
         setQrUrl(`http://${store.serverIP}:3000/qr/${globalData.static_qr_path}`);
-        setStatusText("Menunggu Kasir Memverifikasi...");
+        setStatusText("[ MENUNGGU KASIR ]");
         if (window.electronAPI.setPendingPayment) window.electronAPI.setPendingPayment({ name: customerName, template: customerTemplate.filename, price: customerTemplate.override_price });
     } else {
         store.setupPayment(customerTemplate.override_price, 'camera');
@@ -385,7 +388,6 @@ export default function App() {
   };
 
   const takePhotoAction = async () => {
-    // [ENGINE PEREKAMAN VIDEO MEDIARECORDER]
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
         if (videoRef.current && videoRef.current.srcObject) {
             recordedChunksRef.current = [];
@@ -403,7 +405,7 @@ export default function App() {
     const current = [...store.capturedPhotos];
     for(let i=0; i<current.length; i++) {
       if(current[i] !== null) continue;
-      for(let c=3; c>0; c--) { setCountdown(c); await new Promise(r=>setTimeout(r,1000)); }
+      for(let c=3; c>0; c--) { setCountdown(`[ ${c} ]`); await new Promise(r=>setTimeout(r,1000)); }
       setCountdown('[ SNAP! ]');
       const v = videoRef.current; const cvs = canvasRef.current; const ctx = cvs.getContext('2d');
       cvs.width = v.videoWidth; cvs.height = v.videoHeight; ctx.drawImage(v, 0, 0, cvs.width, cvs.height);
@@ -414,7 +416,6 @@ export default function App() {
     }
     setCountdown(null); 
     
-    // Stop Perekaman Video
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
     }
@@ -452,7 +453,10 @@ export default function App() {
                       <div key={ev.id} className="border-4 border-black p-6 flex flex-col bg-white transition-colors group shadow-[8px_8px_0_0_#000]" style={{ ':hover': { backgroundColor: 'var(--color-secondary)' } }}>
                         <h3 className="font-sys text-3xl font-bold mb-2 text-black">{ev.nama_event}</h3>
                         <p className="font-pixel text-[10px] text-gray-500 mb-6">{new Date(ev.created_at).toLocaleString()}</p>
-                        <button onClick={async()=>{ const isOk = await store.showDialog("Lanjutkan sesi ini?", 'confirm'); if(isOk) { await window.electronAPI.reopenEvent(ev.id); store.fetchActiveEvent(); } }} className="text-white font-pixel border-4 border-black py-3 text-xs mt-auto shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-primary)' }}>[ BUKA & LANJUTKAN SESI ]</button>
+                        <div className="mt-auto flex gap-2">
+                           <button onClick={async()=>{ const isOk = await store.showDialog("Lanjutkan sesi ini?", 'confirm'); if(isOk) { await window.electronAPI.reopenEvent(ev.id); store.fetchActiveEvent(); } }} className="text-white flex-1 font-pixel border-4 border-black py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1" style={{ backgroundColor: 'var(--color-primary)' }}>[ BUKA SESI ]</button>
+                           <button onClick={() => setDeleteModal({ isOpen: true, event: ev, local: true, gdrive: false })} className="text-white flex-1 font-pixel border-4 border-black py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 bg-red-600">[ HAPUS ]</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -523,7 +527,7 @@ export default function App() {
 
       return (
         <div className="flex flex-col items-center justify-center h-screen p-10 overflow-hidden relative" style={{ backgroundColor: 'var(--color-bg)' }}>
-          <h1 className="font-pixel text-3xl mb-4 drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Pilih Frame Favoritmu</h1>
+          <h1 className="font-pixel text-2xl md:text-3xl mb-4 drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Pilih Frame Favoritmu</h1>
           
           {hasPortrait && hasLandscape && (
              <div className="flex gap-6 mb-8 shrink-0">
@@ -537,13 +541,13 @@ export default function App() {
               <div key={tpl.id} onClick={() => startCustomerPhoto(tpl)} className={`bg-white border-8 border-black cursor-pointer hover:scale-105 hover:-translate-y-2 transition-all shadow-[12px_12px_0_0_#000] flex flex-col shrink-0 ${customerTab === 'landscape' ? 'w-[500px]' : 'w-[320px]'}`}>
                 <div className={`${customerTab === 'landscape' ? 'h-[250px]' : 'h-[420px]'} bg-gray-200 border-b-8 border-black p-4 relative flex justify-center items-center`}>
                   <img src={`http://localhost:3000/templates/${tpl.filename}`} className="max-w-full max-h-full object-contain drop-shadow-xl" />
-                  <div className="absolute top-4 right-4 font-pixel text-xs text-white px-3 py-2 border-4 border-black shadow-[4px_4px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>{tpl.override_price <= 0 ? 'GRATIS' : `Rp ${(tpl.override_price/1000)}k`}</div>
+                  <div className="absolute top-4 right-4 font-pixel text-[10px] text-white px-3 py-2 border-4 border-black shadow-[4px_4px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>{tpl.override_price <= 0 ? 'GRATIS' : `Rp ${(tpl.override_price/1000)}k`}</div>
                 </div>
-                <div className="p-4 text-center font-pixel text-base text-black" style={{ backgroundColor: 'var(--color-secondary)' }}>[ PILIH FRAME ]</div>
+                <div className="p-4 text-center font-pixel text-sm text-black" style={{ backgroundColor: 'var(--color-secondary)' }}>[ PILIH FRAME ]</div>
               </div>
             ))}
           </div>
-          <button onClick={() => store.setScreen('landing')} className="text-white border-4 border-black font-pixel px-6 py-3 absolute bottom-6 left-6 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ KEMBALI ]</button>
+          <button onClick={() => store.setScreen('landing')} className="text-white border-4 border-black font-pixel px-6 py-3 absolute bottom-6 left-6 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ KEMBALI ]</button>
         </div>
       );
     }
@@ -558,7 +562,7 @@ export default function App() {
       </div>
     );
 
-    if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen" style={{ backgroundColor: 'var(--color-bg)' }}><div className="bg-white border-8 border-black w-[500px] p-10 text-center" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}><h2 className="font-pixel text-xl mb-4" style={{ color: 'var(--color-primary)' }}>Scan QRIS</h2><div className="font-sys text-6xl font-bold mb-8" style={{ color: 'var(--color-accent)' }}>Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[320px] h-[320px] mx-auto border-8 border-black flex items-center justify-center bg-gray-100 mb-8">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-2xl font-bold text-black p-3 border-4 border-black" style={{ backgroundColor: 'var(--color-secondary)' }}>{statusText}</div></div></div>;
+    if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen" style={{ backgroundColor: 'var(--color-bg)' }}><div className="bg-white border-8 border-black w-[500px] p-10 text-center" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}><h2 className="font-pixel text-xl mb-4" style={{ color: 'var(--color-primary)' }}>Scan QRIS</h2><div className="font-sys text-6xl font-bold mb-8" style={{ color: 'var(--color-accent)' }}>Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[320px] h-[320px] mx-auto border-8 border-black flex items-center justify-center bg-gray-100 mb-8">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-xl font-bold text-black p-3 border-4 border-black" style={{ backgroundColor: 'var(--color-secondary)' }}>{statusText}</div></div></div>;
 
     // ADAPTIVE CAMERA SCREEN
     if (store.currentScreen === 'camera') {
@@ -567,27 +571,27 @@ export default function App() {
       
       return (
         <div className="flex flex-col items-center justify-center h-screen relative p-6 overflow-hidden" style={{ backgroundColor: 'var(--color-bg)' }}>
-          {sessionExpiresAt && <div className="absolute top-6 right-6 text-white px-6 py-3 font-pixel text-sm md:text-base border-4 border-black z-50 shadow-[6px_6px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>[ SISA WAKTU: {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')} ]</div>}
-          <h2 className="font-pixel text-2xl text-center mb-4 drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Gaya ke-{store.capturedPhotos.filter(p => p !== null).length + 1}</h2>
+          {sessionExpiresAt && <div className="absolute top-6 right-6 text-white px-6 py-3 font-pixel text-xs md:text-sm border-4 border-black z-50 shadow-[6px_6px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>[ WAKTU: {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')} ]</div>}
+          <h2 className="font-pixel text-xl md:text-2xl text-center mb-4 drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Gaya ke-{store.capturedPhotos.filter(p => p !== null).length + 1}</h2>
 
           <div className={`flex gap-6 w-full max-w-7xl items-stretch ${isLandscape ? 'flex-col h-[85vh]' : 'flex-row h-[80vh]'}`}>
             
-            {/* LIVE VIEW BESAR DENGAN ONCLICK UNTUK VIDEO DAN FOTO */}
             <div className={`${isLandscape ? 'h-[70%] w-full flex-row' : 'w-[70%] h-full flex-col'} border-8 border-black bg-black flex p-2 relative cursor-pointer hover:translate-y-1 transition-all`} style={{ boxShadow: '12px 12px 0 0 var(--color-secondary)' }} onClick={countdown === null ? takePhotoAction : undefined}>
               <div className="relative flex-1 bg-black overflow-hidden flex justify-center items-center">
                 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"></video>
                 
                 {countdown === null && (
-                    <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-4 border-4 font-pixel text-sm md:text-base z-10 pointer-events-none text-center shadow-[6px_6px_0_0_#000] animate-pulse" style={{ color: 'var(--color-secondary)', borderColor: 'var(--color-secondary)' }}>
+                    <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-4 border-4 font-pixel text-xs md:text-sm z-10 pointer-events-none text-center shadow-[6px_6px_0_0_#000] animate-pulse" style={{ color: 'var(--color-secondary)', borderColor: 'var(--color-secondary)' }}>
                         [ TEKAN LAYAR UNTUK MULAI TAKE FOTO ]
                     </div>
                 )}
-                {countdown && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20"><span className="font-pixel text-[100px] drop-shadow-[12px_12px_0_rgba(0,0,0,1)]" style={{ color: 'var(--color-secondary)' }}>{countdown}</span></div>}
+                {/* [REVISI MUTLAK] - TULISAN SNAP DIPERKECIL AGAR PROPORSIONAL */}
+                {countdown && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20"><span className="font-pixel text-6xl md:text-8xl drop-shadow-[8px_8px_0_rgba(0,0,0,1)] text-center" style={{ color: 'var(--color-secondary)' }}>{countdown}</span></div>}
               </div>
             </div>
 
             <div className={`${isLandscape ? 'h-[30%] w-full flex-row' : 'w-[30%] h-full flex-col'} bg-white border-8 border-black flex p-4 shrink-0`} style={{ boxShadow: '12px 12px 0 0 var(--color-secondary)' }}>
-              {!isLandscape && <h2 className="font-pixel text-lg text-center mb-2 shrink-0" style={{ color: 'var(--color-primary)' }}>Preview</h2>}
+              {!isLandscape && <h2 className="font-pixel text-sm md:text-base text-center mb-2 shrink-0" style={{ color: 'var(--color-primary)' }}>Preview</h2>}
               <div ref={previewContainerRef} className="flex-1 min-h-0 min-w-0 border-4 border-dashed border-gray-400 bg-gray-100 relative overflow-hidden flex justify-center items-center p-2">
                   {customerTemplate && (
                       <div className="shrink-0" style={{ width: Number(customerTemplate.width), height: Number(customerTemplate.height), minWidth: Number(customerTemplate.width), minHeight: Number(customerTemplate.height), transform: `scale(${previewScale})`, transformOrigin: 'center center', position: 'relative', backgroundColor: 'transparent' }}>
@@ -619,12 +623,12 @@ export default function App() {
 
       return (
         <div className="flex flex-col items-center justify-center h-screen space-y-6 relative p-6 overflow-hidden" style={{ backgroundColor: 'var(--color-bg)' }}>
-          {sessionExpiresAt && <div className="absolute top-6 right-6 text-white px-6 py-3 font-pixel text-sm md:text-base border-4 border-black z-50 shadow-[6px_6px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>[ SISA WAKTU: {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')} ]</div>}
-          <h1 className="font-pixel text-3xl drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Review Hasil Akhir</h1>
+          {sessionExpiresAt && <div className="absolute top-6 right-6 text-white px-6 py-3 font-pixel text-xs md:text-sm border-4 border-black z-50 shadow-[6px_6px_0_0_#000]" style={{ backgroundColor: 'var(--color-accent)' }}>[ WAKTU: {Math.floor(timeLeftDisplay / 60).toString().padStart(2, '0')}:{(timeLeftDisplay % 60).toString().padStart(2, '0')} ]</div>}
+          <h1 className="font-pixel text-2xl md:text-3xl drop-shadow-[4px_4px_0_#000] shrink-0" style={{ color: 'var(--color-secondary)' }}>Review Hasil Akhir</h1>
           
           <div className={`flex gap-8 w-full max-w-7xl flex-1 min-h-0 ${isLandscape ? 'flex-col' : 'flex-row'}`}>
              <div className={`${isLandscape ? 'h-[60%] w-full' : 'w-[45%] h-full'} bg-white border-8 border-black flex flex-col p-4 shrink-0`} style={{ boxShadow: '12px 12px 0 0 var(--color-secondary)' }}>
-                {!isLandscape && <h2 className="font-pixel text-lg text-center mb-2 shrink-0" style={{ color: 'var(--color-primary)' }}>Photostrip Kamu</h2>}
+                {!isLandscape && <h2 className="font-pixel text-sm md:text-base text-center mb-2 shrink-0" style={{ color: 'var(--color-primary)' }}>Photostrip Kamu</h2>}
                 <div ref={reviewPreviewContainerRef} className="flex-1 min-h-0 border-4 border-dashed border-gray-400 bg-gray-100 relative overflow-hidden flex justify-center items-center p-2">
                     {customerTemplate && (
                         <div className="shrink-0" style={{ width: Number(customerTemplate.width), height: Number(customerTemplate.height), minWidth: Number(customerTemplate.width), minHeight: Number(customerTemplate.height), transform: `scale(${reviewPreviewScale})`, transformOrigin: 'center center', position: 'relative' }}>
@@ -643,15 +647,15 @@ export default function App() {
                 <div className={`flex-1 min-h-0 min-w-0 ${gridClass}`}>
                   {store.capturedPhotos.map((photo, i) => (
                     <div key={i} className={`border-4 border-black p-4 flex flex-col items-center bg-gray-100 shrink-0 shadow-[6px_6px_0_0_#000] ${isLandscape ? 'w-[320px] h-auto' : 'w-full min-h-[250px]'}`}>
-                      <h3 className="font-pixel text-sm md:text-base mb-2" style={{ color: 'var(--color-primary)' }}>Gaya {i + 1}</h3>
+                      <h3 className="font-pixel text-xs md:text-sm mb-2" style={{ color: 'var(--color-primary)' }}>Gaya {i + 1}</h3>
                       {photo ? <img src={photo} className="w-full aspect-video object-cover border-4 border-black scale-x-[-1]" /> : <div className="w-full aspect-video bg-gray-300 border-4 border-black flex items-center justify-center font-sys text-gray-500 text-lg font-bold">Kosong</div>}
-                      {timeLeftDisplay > 60 && <button onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} disabled={store.retakesLeft <= 0 || !photo} className="w-full mt-4 px-2 py-3 font-pixel text-xs md:text-sm border-4 border-black text-black hover:bg-white disabled:opacity-50 transition-colors shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none" style={{ backgroundColor: 'var(--color-secondary)' }}>[ RETAKE FOTO ]</button>}
+                      {timeLeftDisplay > 60 && <button onClick={() => { const nw = [...store.capturedPhotos]; nw[i]=null; store.setCapturedPhotos(nw); store.decrementRetake(); store.setScreen('camera'); executeStartSessionTimer(); }} disabled={store.retakesLeft <= 0 || !photo} className="w-full mt-4 px-2 py-3 font-pixel text-[10px] md:text-xs border-4 border-black text-black hover:bg-white disabled:opacity-50 transition-colors shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none" style={{ backgroundColor: 'var(--color-secondary)' }}>[ RETAKE FOTO ]</button>}
                     </div>
                   ))}
                 </div>
 
                 <div className={`shrink-0 flex items-center gap-4 ${isLandscape ? 'flex-col w-[260px] ml-8' : 'flex-col mt-6 pt-6 border-t-8 border-dashed border-gray-300'}`}>
-                  {timeLeftDisplay > 60 && <p className="font-pixel text-base md:text-lg text-black px-4 py-3 border-4 border-black shadow-[6px_6px_0_0_#000] text-center w-full" style={{ backgroundColor: 'var(--color-secondary)' }}>SISA RETAKE:<br/>{store.retakesLeft}</p>}
+                  {timeLeftDisplay > 60 && <p className="font-pixel text-sm md:text-base text-black px-4 py-3 border-4 border-black shadow-[6px_6px_0_0_#000] text-center w-full" style={{ backgroundColor: 'var(--color-secondary)' }}>SISA RETAKE:<br/><br/>{store.retakesLeft}</p>}
                   <button onClick={processStitching} className="text-white font-pixel border-4 border-black w-full py-4 text-xl shadow-[8px_8px_0_0_#000] hover:translate-y-1 transition-all flex-1 min-h-[80px]" style={{ backgroundColor: 'var(--color-accent)' }}>[ CETAK SEKARANG ]</button>
                 </div>
 
@@ -668,10 +672,10 @@ export default function App() {
         <div className="flex gap-10 items-stretch w-full max-w-5xl flex-1 min-h-0 pb-6">
           <div className="w-[60%] bg-white border-8 border-black p-6 flex justify-center items-center overflow-hidden relative" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}><img src={finalResult?.downloadUrl} className="max-h-full max-w-full object-contain border-4 border-gray-300 bg-white drop-shadow-xl" alt="Final Photostrip" /></div>
           <div className="w-[40%] bg-white border-8 border-black p-8 flex flex-col items-center justify-center gap-6 shrink-0 overflow-y-auto" style={{ boxShadow: '16px 16px 0 0 var(--color-accent)' }}>
-            <p className="font-pixel text-lg text-center" style={{ color: 'var(--color-primary)' }}>Ambil Softfile</p>
+            <p className="font-pixel text-base text-center" style={{ color: 'var(--color-primary)' }}>Ambil Softfile</p>
             <div className="border-8 border-black p-4 bg-gray-100 shadow-inner"><img src={finalResult?.qrCode} className="w-[200px] h-[200px] object-contain" alt="QR Code" /></div>
             <p className="font-sys text-center text-gray-600 font-bold text-lg mt-2 px-2 leading-tight">File resolusi tinggi tersimpan di server lokal. Segera download sebelum ditutup.</p>
-            <button onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} className="text-black border-4 border-black font-pixel w-full py-4 mt-auto text-xl shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all shrink-0" style={{ backgroundColor: 'var(--color-secondary)' }}>[ SELESAI ]</button>
+            <button onClick={() => { store.resetCustomerSession(); store.setScreen('landing'); }} className="text-black border-4 border-black font-pixel w-full py-4 mt-auto text-lg shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all shrink-0" style={{ backgroundColor: 'var(--color-secondary)' }}>[ SELESAI ]</button>
           </div>
         </div>
       </div>
@@ -684,8 +688,36 @@ export default function App() {
     <div className="w-screen h-screen overflow-hidden relative">
       <RetroDialog />
       
+      {/* [BARU] MODAL HAPUS SESI DENGAN CHECKBOX */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 bg-black/90 z-[100] flex justify-center items-center p-6">
+            <div className="bg-white border-8 border-black p-8 w-full max-w-lg" style={{ boxShadow: '16px 16px 0 0 var(--color-accent)' }}>
+                <h2 className="font-pixel text-xl mb-4 text-red-600">[ HAPUS DATABASE SESI ]</h2>
+                <p className="font-sys text-lg mb-6 font-bold">Anda yakin ingin menghapus "{deleteModal.event?.nama_event}"?</p>
+                <div className="flex flex-col gap-4 mb-8">
+                    <label className="flex items-center gap-3 font-sys text-xl cursor-pointer">
+                        <input type="checkbox" className="w-6 h-6" checked={deleteModal.local} onChange={e=>setDeleteModal({...deleteModal, local: e.target.checked})} />
+                        Hapus Direktori Fisik (Foto & Video Lokal)
+                    </label>
+                    <label className="flex items-center gap-3 font-sys text-xl cursor-pointer">
+                        <input type="checkbox" className="w-6 h-6" checked={deleteModal.gdrive} onChange={e=>setDeleteModal({...deleteModal, gdrive: e.target.checked})} />
+                        Hapus Backup di Google Drive
+                    </label>
+                </div>
+                <div className="flex gap-4">
+                    <button onClick={()=>setDeleteModal({...deleteModal, isOpen:false})} className="flex-1 border-4 border-black font-pixel py-3 text-xs" style={{backgroundColor: 'var(--color-secondary)'}}>[ BATAL ]</button>
+                    <button onClick={async ()=>{
+                        await window.electronAPI.deleteEvent({eventId: deleteModal.event.id, deleteLocal: deleteModal.local, deleteGdrive: deleteModal.gdrive});
+                        store.fetchRecentEvents();
+                        setDeleteModal({...deleteModal, isOpen:false});
+                    }} className="flex-1 bg-[#FF3B67] text-white border-4 border-black font-pixel py-3 text-xs">[ HAPUS PERMANEN ]</button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {hwStatus && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 text-black px-10 py-5 border-8 border-black font-sys font-bold z-[200] shadow-[8px_8px_0_0_#000] animate-bounce text-2xl text-center whitespace-pre-wrap" style={{ backgroundColor: 'var(--color-secondary)' }}>
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 text-black px-10 py-5 border-8 border-black font-sys font-bold z-[200] shadow-[8px_8px_0_0_#000] animate-bounce text-xl text-center whitespace-pre-wrap" style={{ backgroundColor: 'var(--color-secondary)' }}>
             {hwStatus}
         </div>
       )}
@@ -698,30 +730,30 @@ export default function App() {
       {isDashboardOpen && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[100] p-10">
           <div className="bg-white border-8 border-black w-full max-w-6xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
-            <div className="text-white font-pixel border-b-8 border-black p-4 text-lg flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>[ LIVE DASHBOARD - {store.activeEvent?.nama_event} ] <button onClick={()=>setDashboardOpen(false)} className="hover:text-black hover:scale-125 transition-all" style={{ color: 'var(--color-accent)' }}>[ X ]</button></div>
+            <div className="text-white font-pixel border-b-8 border-black p-4 text-sm flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>[ LIVE DASHBOARD - {store.activeEvent?.nama_event} ] <button onClick={()=>setDashboardOpen(false)} className="hover:text-black hover:scale-125 transition-all" style={{ color: 'var(--color-accent)' }}>[ X ]</button></div>
             <div className="p-8 flex flex-col gap-6 overflow-y-auto bg-gray-100">
               <div className="flex gap-6">
                 <div className="flex-1 bg-white border-4 border-black p-6 shadow-[8px_8px_0_0_#000] flex flex-col gap-4">
-                  <h3 className="font-pixel text-sm" style={{ color: 'var(--color-primary)' }}>Akses Penyimpanan</h3>
+                  <h3 className="font-pixel text-xs" style={{ color: 'var(--color-primary)' }}>Akses Penyimpanan</h3>
                   <div className="font-sys text-base mt-2 flex flex-col gap-4">
                     <div><p className="font-bold">Direktori Lokal (Backup):</p><p className="text-gray-600 bg-gray-100 p-3 border-2 border-gray-400 select-all font-mono">{dashboardData?.localPath || 'Memuat...'}</p></div>
                     {globalData.app_mode === 'online' && ( <div><p className="font-bold">Google Drive:</p><p className="text-blue-600 bg-blue-50 p-3 border-2 border-blue-300 select-all break-all font-mono">{dashboardData?.gdriveLink || 'Memuat...'}</p></div> )}
                   </div>
                 </div>
                 <div className="bg-white border-4 border-black p-6 shadow-[8px_8px_0_0_#000] flex flex-col items-center justify-center shrink-0 w-[260px]">
-                  <h3 className="font-pixel text-sm mb-2 text-center" style={{ color: 'var(--color-accent)' }}>Remote Cashier</h3>
+                  <h3 className="font-pixel text-xs mb-2 text-center" style={{ color: 'var(--color-accent)' }}>Remote Cashier</h3>
                   {dashboardData?.adminQr ? <img src={dashboardData.adminQr} className="w-[140px] h-[140px] border-4 border-black p-1" alt="Admin QR" /> : <div className="w-[140px] h-[140px] border-4 flex items-center justify-center text-3xl">...</div>}
                   <p className="font-sys text-xs text-gray-500 mt-4 text-center leading-tight font-bold">Scan via HP Admin</p>
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-6">
-                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Saldo/Deposit Awal</p><p className="font-pixel text-base" style={{ color: 'var(--color-primary)' }}>Rp {formatRp(dashboardData?.stats?.saldo_awal)}</p></div>
-                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Total Transaksi</p><p className="font-pixel text-base text-black">{dashboardData?.stats?.total_trx || 0} Lembar</p></div>
-                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Beban HPP</p><p className="font-pixel text-base" style={{ color: 'var(--color-accent)' }}>Rp {formatRp(dashboardData?.stats?.total_beban_hpp)}</p></div>
-                <div className="border-4 border-black p-4 text-center shadow-[8px_8px_0_0_#000]" style={{ backgroundColor: 'var(--color-secondary)' }}><p className="font-sys font-bold mb-1 text-black">Laba Bersih</p><p className="font-pixel text-xl text-black font-bold">Rp {formatRp(dashboardData?.stats?.sisa_saldo)}</p></div>
+                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Saldo Awal</p><p className="font-pixel text-xs" style={{ color: 'var(--color-primary)' }}>Rp {formatRp(dashboardData?.stats?.saldo_awal)}</p></div>
+                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Total Transaksi</p><p className="font-pixel text-xs text-black">{dashboardData?.stats?.total_trx || 0} Lembar</p></div>
+                <div className="bg-white border-4 border-black p-4 text-center shadow-[4px_4px_0_0_#000]"><p className="font-sys text-gray-500 font-bold mb-1">Beban HPP</p><p className="font-pixel text-xs" style={{ color: 'var(--color-accent)' }}>Rp {formatRp(dashboardData?.stats?.total_beban_hpp)}</p></div>
+                <div className="border-4 border-black p-4 text-center shadow-[8px_8px_0_0_#000]" style={{ backgroundColor: 'var(--color-secondary)' }}><p className="font-sys font-bold mb-1 text-black">Laba Bersih</p><p className="font-pixel text-sm text-black font-bold">Rp {formatRp(dashboardData?.stats?.sisa_saldo)}</p></div>
               </div>
               <div className="bg-white border-4 border-black flex-1 flex flex-col shadow-[8px_8px_0_0_#000]">
-                <div className="border-b-4 border-black p-3 font-pixel text-xs flex" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-secondary)' }}><div className="w-[180px]">WAKTU</div><div className="flex-1">PELANGGAN</div><div className="w-[180px]">STATUS</div><div className="w-[180px]">HARGA</div></div>
+                <div className="border-b-4 border-black p-3 font-pixel text-[10px] flex" style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-secondary)' }}><div className="w-[180px]">WAKTU</div><div className="flex-1">PELANGGAN</div><div className="w-[180px]">STATUS</div><div className="w-[180px]">HARGA</div></div>
                 <div className="overflow-y-auto font-sys text-xl min-h-[200px]">
                   {dashboardData?.sessions?.length === 0 && <p className="p-6 text-center text-gray-500 font-bold">Belum ada transaksi di sesi ini.</p>}
                   {dashboardData?.sessions?.map((s, i) => ( <div key={i} className="flex p-3 border-b-2 border-gray-200 hover:bg-yellow-50"><div className="w-[180px] text-base text-gray-500 pt-1">{s.waktu}</div><div className="flex-1 font-bold">{s.customer_name}</div><div className="w-[180px] font-bold text-green-600">{s.status_cetak}</div><div className="w-[180px] font-bold" style={{ color: 'var(--color-primary)' }}>Rp {formatRp(s.harga_jual)}</div></div> ))}
@@ -738,25 +770,25 @@ export default function App() {
       {isGlobalOpen && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[90] p-10">
           <div className="bg-white border-8 border-black w-full max-w-5xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
-            <div className="text-white font-pixel border-b-8 border-black p-4 text-lg flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
+            <div className="text-white font-pixel border-b-8 border-black p-4 text-sm flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
                <span>[ GLOBAL SETTINGS.INI ]</span>
                <button onClick={async ()=>{ const ok = await store.showDialog('Batal mengubah pengaturan? Semua yang belum disave akan hilang.', 'confirm'); if(ok) setGlobalOpen(false); }} className="hover:text-black hover:scale-125 font-bold transition-all" style={{ color: 'var(--color-accent)' }}>[ X ]</button>
             </div>
             
             <div className="flex flex-1 overflow-hidden">
                {/* Sisi Kiri: Tab Navigation */}
-               <div className="w-[280px] bg-gray-200 border-r-8 border-black flex flex-col p-4 gap-3 shrink-0">
-                  <button onClick={() => setSettingsTab('umum')} className={`text-left p-3 font-pixel text-xs border-4 border-black transition-all ${settingsTab === 'umum' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'umum' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[1] Umum</button>
-                  <button onClick={() => setSettingsTab('midtrans')} className={`text-left p-3 font-pixel text-xs border-4 border-black transition-all ${settingsTab === 'midtrans' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'midtrans' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[2] Pembayaran</button>
-                  <button onClick={() => setSettingsTab('hardware')} className={`text-left p-3 font-pixel text-xs border-4 border-black transition-all ${settingsTab === 'hardware' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'hardware' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[3] Hardware</button>
-                  <button onClick={() => setSettingsTab('tema')} className={`text-left p-3 font-pixel text-xs border-4 border-black transition-all ${settingsTab === 'tema' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'tema' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[4] Tema UI</button>
+               <div className="w-[240px] bg-gray-200 border-r-8 border-black flex flex-col p-4 gap-3 shrink-0">
+                  <button onClick={() => setSettingsTab('umum')} className={`text-left p-3 font-pixel text-[10px] md:text-xs border-4 border-black transition-all ${settingsTab === 'umum' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'umum' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[1] Umum</button>
+                  <button onClick={() => setSettingsTab('midtrans')} className={`text-left p-3 font-pixel text-[10px] md:text-xs border-4 border-black transition-all ${settingsTab === 'midtrans' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'midtrans' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[2] Pembayaran</button>
+                  <button onClick={() => setSettingsTab('hardware')} className={`text-left p-3 font-pixel text-[10px] md:text-xs border-4 border-black transition-all ${settingsTab === 'hardware' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'hardware' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[3] Hardware</button>
+                  <button onClick={() => setSettingsTab('tema')} className={`text-left p-3 font-pixel text-[10px] md:text-xs border-4 border-black transition-all ${settingsTab === 'tema' ? 'text-black translate-x-2 shadow-[-6px_6px_0_0_#000]' : 'bg-white hover:bg-gray-100 text-gray-700'}`} style={settingsTab === 'tema' ? { backgroundColor: 'var(--color-secondary)' } : {}}>[4] Tema UI</button>
                </div>
 
                {/* Sisi Kanan: Content Area */}
                <div className="flex-1 p-8 overflow-y-auto font-sys text-xl bg-white relative">
                   {settingsTab === 'tema' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
-                        <h2 className="font-pixel text-xl border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Pilih Tema Kiosk</h2>
+                        <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Pilih Tema Kiosk</h2>
                         <p className="font-sys text-sm font-bold text-gray-600 mb-4">*Shortcut ganti tema (Kapan Saja): Ctrl + Arrow Up / Arrow Down</p>
                         
                         <div className="grid grid-cols-2 gap-6">
@@ -767,7 +799,7 @@ export default function App() {
                              { id: 'fall', name: 'Fall', colors: ['#354E47', '#FAF2E3', '#DB627A'] }
                            ].map(t => (
                              <div key={t.id} onClick={() => setGlobalData({...globalData, active_theme: t.id})} className="p-4 border-4 cursor-pointer hover:-translate-y-1 transition-all shadow-[6px_6px_0_0_#000] flex flex-col bg-white" style={globalData.active_theme === t.id ? { borderColor: 'var(--color-primary)', outline: '4px solid var(--color-primary)' } : { borderColor: 'black' }}>
-                                <span className="font-pixel text-sm mb-3 uppercase font-bold text-center">{t.name}</span>
+                                <span className="font-pixel text-[10px] mb-3 uppercase font-bold text-center">{t.name}</span>
                                 <div className="flex h-16 w-full border-4 border-black">
                                    <div className="flex-1" style={{ backgroundColor: t.colors[0] }}></div>
                                    <div className="flex-1" style={{ backgroundColor: t.colors[1] }}></div>
@@ -781,7 +813,7 @@ export default function App() {
 
                   {settingsTab === 'umum' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
-                        <h2 className="font-pixel text-xl border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Pengaturan Umum</h2>
+                        <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Pengaturan Umum</h2>
 
                         <div className="flex items-center gap-4 bg-gray-100 p-5 border-4 border-black shadow-[4px_4px_0_0_#000]">
                            <label className="font-bold w-[150px] text-black">Mode Kiosk:</label>
@@ -804,7 +836,7 @@ export default function App() {
 
                   {settingsTab === 'midtrans' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
-                        <h2 className="font-pixel text-xl border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Gateway Pembayaran</h2>
+                        <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Gateway Pembayaran</h2>
                         <div className="flex flex-col gap-4 bg-gray-100 p-6 border-4 border-black shadow-[4px_4px_0_0_#000]">
                            <h3 className="font-bold text-xl" style={{ color: 'var(--color-primary)' }}>API Midtrans (Online Mode)</h3>
                            <div className="flex flex-col gap-3 mt-2">
@@ -818,7 +850,7 @@ export default function App() {
                         <div className="flex flex-col gap-4 bg-gray-100 p-6 border-4 border-black shadow-[4px_4px_0_0_#000] mt-2">
                            <h3 className="font-bold text-xl flex items-center justify-between" style={{ color: 'var(--color-primary)' }}>
                               QRIS Statis (Offline Mode)
-                              <label className="font-bold flex items-center gap-3 text-sm text-white p-3 border-4 border-black cursor-pointer shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>
+                              <label className="font-bold flex items-center gap-3 text-xs text-white p-3 border-4 border-black cursor-pointer shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>
                                  <input type="checkbox" className="w-5 h-5 shrink-0" checked={globalData.force_static_qr === 1} onChange={e=>setGlobalData({...globalData, force_static_qr: e.target.checked ? 1 : 0})} /> 
                                  PAKSA SELALU STATIS
                               </label>
@@ -826,7 +858,7 @@ export default function App() {
                            <div className="flex gap-8 items-start mt-4">
                               <div className="flex-1 flex flex-col gap-4">
                                  <p className="text-base text-gray-600 font-bold">Gambar ini akan dimunculkan di layar Kiosk saat mode Offline aktif. Pembayaran diverifikasi manual dari HP Kasir.</p>
-                                 <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="text-black font-pixel border-4 border-black py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-secondary)' }}>[ UPLOAD GAMBAR QR BARU ]</button>
+                                 <button type="button" onClick={async () => { const path = await window.electronAPI.selectStaticQR(); if(path) setGlobalData({...globalData, static_qr_path: path}); }} className="text-black font-pixel border-4 border-black py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-secondary)' }}>[ UPLOAD GAMBAR QR BARU ]</button>
                               </div>
                               <div className="border-4 border-dashed border-gray-400 bg-white w-[180px] h-[180px] flex items-center justify-center shrink-0 p-2">
                                  {globalData.static_qr_path ? <img src={`http://${store.serverIP}:3000/qr/${globalData.static_qr_path}`} className="max-w-full max-h-full object-contain" alt="QR Preview" /> : <span className="text-sm font-bold text-gray-400">Belum diupload</span>}
@@ -838,8 +870,8 @@ export default function App() {
 
                   {settingsTab === 'hardware' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
-                        <h2 className="font-pixel text-xl border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Hardware & Mesin</h2>
-                        <label className="font-bold flex items-center gap-4 text-base text-white p-6 border-4 border-black cursor-pointer shadow-[8px_8px_0_0_#000] hover:translate-y-1 transition-all mt-2" style={{ backgroundColor: 'var(--color-accent)' }}>
+                        <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4" style={{ color: 'var(--color-primary)' }}>Hardware & Mesin</h2>
+                        <label className="font-bold flex items-center gap-4 text-sm text-white p-6 border-4 border-black cursor-pointer shadow-[8px_8px_0_0_#000] hover:translate-y-1 transition-all mt-2" style={{ backgroundColor: 'var(--color-accent)' }}>
                            <input type="checkbox" className="w-6 h-6 shrink-0 accent-white" checked={globalData.hw_bypass_mode === 1} onChange={e=>setGlobalData({...globalData, hw_bypass_mode: e.target.checked ? 1 : 0})} /> 
                            AKTIFKAN MODE TROUBLESHOOTING (Bypass Pemblokir Kiosk)
                         </label>
@@ -865,8 +897,8 @@ export default function App() {
 
             {/* Sticky Footer Modal */}
             <div className="border-t-8 border-black bg-gray-200 p-6 flex gap-6 shrink-0">
-               <button onClick={async ()=>{ const ok = await store.showDialog('Batal mengubah pengaturan?', 'confirm'); if(ok) setGlobalOpen(false); }} className="text-white font-pixel border-4 border-black flex-1 py-4 text-lg shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL (JANGAN SIMPAN) ]</button>
-               <button onClick={saveGlobalSettings} className="text-white font-pixel border-4 border-black flex-1 py-4 text-lg shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>[ SIMPAN PENGATURAN ]</button>
+               <button onClick={async ()=>{ const ok = await store.showDialog('Batal mengubah pengaturan?', 'confirm'); if(ok) setGlobalOpen(false); }} className="text-white font-pixel border-4 border-black flex-1 py-4 text-sm shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL (JANGAN SIMPAN) ]</button>
+               <button onClick={saveGlobalSettings} className="text-white font-pixel border-4 border-black flex-1 py-4 text-sm shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>[ SIMPAN PENGATURAN ]</button>
             </div>
           </div>
         </div>
@@ -878,26 +910,26 @@ export default function App() {
       {isTemplateOpen && !editingTemplate && !orientationModal && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[80] p-10">
           <div className="bg-white border-8 border-black w-full max-w-6xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
-            <div className="text-white font-pixel border-b-8 border-black p-4 text-lg flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}><span>[ MASTER TEMPLATE LIBRARY ]</span><button onClick={()=>setTemplateOpen(false)} className="hover:text-black font-bold transition-all" style={{ color: 'var(--color-accent)' }}>[ X ]</button></div>
+            <div className="text-white font-pixel border-b-8 border-black p-4 text-sm flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}><span>[ MASTER TEMPLATE LIBRARY ]</span><button onClick={()=>setTemplateOpen(false)} className="hover:text-black font-bold transition-all" style={{ color: 'var(--color-accent)' }}>[ X ]</button></div>
             <div className="p-8 flex flex-col gap-8 overflow-y-auto bg-gray-100">
               <div className="flex justify-between items-center bg-white p-6 border-4 border-black shadow-[8px_8px_0_0_#000]">
                 <div><h2 className="font-pixel text-xl" style={{ color: 'var(--color-primary)' }}>Database Master Template</h2></div>
-                <button onClick={async () => { const path = await window.electronAPI.openFileDialog(); if (path) { const res = await window.electronAPI.saveNewTemplate({ tempPath: path }); if(res.success) { store.fetchTemplates(); setOrientationModal(res.id); } } }} className="text-black font-pixel border-4 border-black px-6 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-secondary)' }}>[+] UPLOAD PNG BARU</button>
+                <button onClick={async () => { const path = await window.electronAPI.openFileDialog(); if (path) { const res = await window.electronAPI.saveNewTemplate({ tempPath: path }); if(res.success) { store.fetchTemplates(); setOrientationModal(res.id); } } }} className="text-black font-pixel border-4 border-black px-6 py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-secondary)' }}>[+] UPLOAD PNG BARU</button>
               </div>
               <div className="grid grid-cols-2 gap-6">
                 {store.templates.map(tpl => (
                   <div key={tpl.id} className="bg-white border-4 border-black p-5 flex gap-6 shadow-[8px_8px_0_0_#000]">
                     <div className="w-[120px] h-[160px] bg-gray-200 flex justify-center items-center shrink-0 border-4 border-dashed border-gray-400 relative p-2">
                        <img src={`http://localhost:3000/templates/${tpl.filename}`} className="max-h-full object-contain" />
-                       <div className="absolute -top-4 -right-4 bg-black px-2 py-1 text-[10px] font-pixel border-2" style={{ color: 'var(--color-secondary)', borderColor: 'var(--color-secondary)' }}>{tpl.orientation?.toUpperCase()}</div>
+                       <div className="absolute -top-4 -right-4 bg-black px-2 py-1 text-[8px] font-pixel border-2" style={{ color: 'var(--color-secondary)', borderColor: 'var(--color-secondary)' }}>{tpl.orientation?.toUpperCase()}</div>
                     </div>
                     <div className="flex flex-col flex-1 font-sys gap-3">
                       <p className="font-bold truncate border-b-4 border-dashed border-gray-300 pb-2 text-xl" style={{ color: 'var(--color-primary)' }}>{tpl.filename}</p>
                       <div className="flex gap-4"><label className="text-base font-bold flex items-center gap-2 cursor-pointer text-gray-700"><input type="checkbox" className="w-5 h-5" checked={tpl.is_visible===1} onChange={e=>updateMasterAttr(tpl, 'is_visible', e.target.checked?1:0)} /> Tampil di Kiosk</label></div>
-                      <div className="flex items-center gap-3 mt-1"><span className="text-base font-bold px-3 py-1 border-2 border-black" style={{ backgroundColor: 'var(--color-secondary)' }}>Harga Dasar:</span><input type="text" className="border-4 border-gray-300 p-2 w-32 outline-none font-bold text-lg focus:border-[#007CC3]" value={formatRp(tpl.price)} onChange={(e) => updateMasterAttr(tpl, 'price', parseRp(e.target.value))} /></div>
+                      <div className="flex items-center gap-3 mt-1"><span className="text-sm font-bold px-3 py-1 border-2 border-black" style={{ backgroundColor: 'var(--color-secondary)' }}>Harga Dasar:</span><input type="text" className="border-4 border-gray-300 p-2 w-32 outline-none font-bold text-lg focus:border-[#007CC3]" value={formatRp(tpl.price)} onChange={(e) => updateMasterAttr(tpl, 'price', parseRp(e.target.value))} /></div>
                       <div className="mt-auto flex gap-3">
-                        <button onClick={() => setOrientationModal(tpl.id)} className="text-white font-pixel border-4 border-black flex-1 py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>[ Orientasi & Slot ]</button>
-                        <button onClick={async () => { const ok = await store.showDialog("Hapus master template ini selamanya?", "confirm"); if(ok) { await window.electronAPI.deleteTemplate(tpl.id); store.fetchTemplates(); } }} className="text-white font-pixel border-4 border-black px-6 py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ X ]</button>
+                        <button onClick={() => setOrientationModal(tpl.id)} className="text-white font-pixel border-4 border-black flex-1 py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-primary)' }}>[ Orientasi & Slot ]</button>
+                        <button onClick={async () => { const ok = await store.showDialog("Hapus master template ini selamanya?", "confirm"); if(ok) { await window.electronAPI.deleteTemplate(tpl.id); store.fetchTemplates(); } }} className="text-white font-pixel border-4 border-black px-6 py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ X ]</button>
                       </div>
                     </div>
                   </div>
@@ -912,7 +944,7 @@ export default function App() {
       {orientationModal && (
         <div className="fixed inset-0 bg-black/90 flex justify-center items-center z-[90] p-10 animate-fade-in">
            <div className="border-8 border-black w-full max-w-4xl p-12 flex flex-col text-center" style={{ backgroundColor: 'var(--color-primary)', boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
-              <h2 className="font-pixel text-2xl mb-4 drop-shadow-[4px_4px_0_#000]" style={{ color: 'var(--color-secondary)' }}>Tentukan Orientasi Bingkai</h2>
+              <h2 className="font-pixel text-xl mb-4 drop-shadow-[4px_4px_0_#000]" style={{ color: 'var(--color-secondary)' }}>Tentukan Orientasi Bingkai</h2>
               <p className="font-sys text-xl font-bold text-white mb-12 drop-shadow-md">Pilihan ini akan mengatur tata letak adaptif layar kamera pelanggan.</p>
               
               <div className="flex gap-10 justify-center mb-12">
@@ -921,7 +953,7 @@ export default function App() {
                        <div className="flex-1 bg-gray-800 flex items-center justify-center text-4xl font-pixel text-white">[ ]</div>
                        <div className="w-[50px] border-2 flex flex-col gap-1 p-1" style={{ backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/></div>
                     </div>
-                    <span className="font-pixel text-base" style={{ color: 'var(--color-primary)' }}>PORTRAIT<br/><span className="text-sm text-gray-500">(Berdiri)</span></span>
+                    <span className="font-pixel text-sm" style={{ color: 'var(--color-primary)' }}>PORTRAIT<br/><span className="text-xs text-gray-500">(Berdiri)</span></span>
                  </button>
 
                  <button onClick={() => { const tpl = store.templates.find(t=>t.id === orientationModal); setEditingTemplate({...tpl, orientation: 'landscape'}); setOrientationModal(null); }} className="flex flex-col items-center gap-6 bg-white p-8 border-8 border-black shadow-[12px_12px_0_0_#000] hover:-translate-y-2 transition-all w-[320px]" style={{ ':hover': { boxShadow: '16px 16px 0 0 var(--color-secondary)' } }}>
@@ -929,10 +961,10 @@ export default function App() {
                        <div className="flex-1 bg-gray-800 flex items-center justify-center text-4xl font-pixel text-white">[ ]</div>
                        <div className="h-[40px] border-2 flex gap-1 p-1" style={{ backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/></div>
                     </div>
-                    <span className="font-pixel text-base" style={{ color: 'var(--color-primary)' }}>LANDSCAPE<br/><span className="text-sm text-gray-500">(Tidur)</span></span>
+                    <span className="font-pixel text-sm" style={{ color: 'var(--color-primary)' }}>LANDSCAPE<br/><span className="text-xs text-gray-500">(Tidur)</span></span>
                  </button>
               </div>
-              <button onClick={() => setOrientationModal(null)} className="text-white border-4 border-black font-pixel py-4 text-lg w-[250px] mx-auto shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>
+              <button onClick={() => setOrientationModal(null)} className="text-white border-4 border-black font-pixel py-4 text-sm w-[250px] mx-auto shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>
            </div>
         </div>
       )}

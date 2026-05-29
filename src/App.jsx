@@ -15,7 +15,7 @@ const parseRp = (val) => {
 };
 
 // ==========================================
-// ENGINE EFEK CRT & ANIMASI KARAKTER (CSS MURNI)
+// ENGINE EFEK CRT (CSS MURNI)
 // ==========================================
 const ArcadeEffects = () => (
   <style>{`
@@ -32,25 +32,6 @@ const ArcadeEffects = () => (
       50% { opacity: 1; }
       100% { opacity: 0.95; }
     }
-    .retro-terrain {
-      position: absolute; bottom: 0; width: 100%; height: 64px; z-index: 10;
-      background-color: #d2691e;
-      background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #8b4513 10px, #8b4513 20px);
-      border-top: 6px solid #000;
-    }
-    
-    /* Animasi Pergerakan Karakter */
-    @keyframes run-fast { 0% { transform: translateX(-10vw); } 100% { transform: translateX(110vw); } }
-    @keyframes fly-across { 0% { transform: translateX(-10vw) translateY(0); } 50% { transform: translateX(50vw) translateY(-40px); } 100% { transform: translateX(110vw) translateY(0); } }
-    @keyframes swing { 0% { transform: rotate(-30deg); } 100% { transform: rotate(30deg); } }
-    @keyframes float-slow { 0% { transform: translateX(110vw) translateY(0); } 50% { transform: translateX(50vw) translateY(-20px); } 100% { transform: translateX(-10vw) translateY(0); } }
-
-    /* Karakter Pixel Abstract (Murni Box-Shadow) */
-    .char-naruto { width: 20px; height: 30px; background: #FF8C00; box-shadow: -10px 5px 0 #FFD700; position: absolute; bottom: 64px; z-index: 11; animation: run-fast 3s linear infinite; }
-    .char-ironman { width: 35px; height: 15px; background: #B22222; box-shadow: -10px 0 0 #FFD700, -25px 0 15px #00FFFF; border-radius: 5px; position: absolute; top: 30%; z-index: 11; animation: fly-across 5s ease-in-out infinite; }
-    .char-spidey { width: 25px; height: 35px; background: #DC143C; border-bottom: 10px solid #0000CD; position: absolute; top: 0; left: 30%; z-index: 11; transform-origin: top center; animation: swing 2.5s ease-in-out infinite alternate; }
-    .char-spidey::before { content: ""; position: absolute; top: -100vh; left: 10px; width: 2px; height: 100vh; background: #fff; opacity: 0.5; }
-    .char-frieren { width: 25px; height: 40px; background: #FFF; border-top: 15px solid #a3c1ad; box-shadow: 0 10px 15px rgba(255,255,255,0.6); position: absolute; bottom: 120px; z-index: 11; animation: float-slow 12s linear infinite; }
   `}</style>
 );
 
@@ -67,7 +48,6 @@ function RetroDialog() {
         <p className="font-sys text-lg font-bold text-gray-700 whitespace-pre-wrap">{dialog.message}</p>
         <div className="flex gap-4 justify-center mt-6">
           {dialog.type === 'confirm' && <button onClick={() => closeDialog(false)} className="text-white font-pixel border-4 border-black flex-1 py-4 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>}
-          {/* [REVISI]: Ganti teks jadi [ LANJUT ] & Anti-Wrap */}
           <button onClick={() => closeDialog(true)} className="text-black font-pixel border-4 border-black flex-1 py-4 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-secondary)' }}>[ LANJUT ]</button>
         </div>
       </div>
@@ -109,12 +89,13 @@ function VirtualKeyboard({ value, onChange, onEnter }) {
 }
 
 // ==========================================
-// VISUAL TEMPLATE EDITOR
+// VISUAL TEMPLATE EDITOR (REVISI: INCLUDE ORIENTATION TOGGLE)
 // ==========================================
 function VisualEditor({ template, onSave, onCancel }) {
   const initialSlots = typeof template.slots === 'string' ? JSON.parse(template.slots) : (template.slots || []);
   const [slots, setSlots] = useState(initialSlots);
   const [scale, setScale] = useState(1);
+  const [orientation, setOrientation] = useState(template.orientation || 'portrait');
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -165,8 +146,17 @@ function VisualEditor({ template, onSave, onCancel }) {
         </div>
       </div>
       <div className="w-[400px] bg-white flex flex-col shrink-0 border-8 border-black" style={{ boxShadow: '12px 12px 0 0 var(--color-secondary)' }}>
-        <div className="text-white font-pixel p-4 text-sm border-b-8 border-black whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ EDITOR {template.orientation?.toUpperCase()} ]</div>
+        <div className="text-white font-pixel p-4 text-sm border-b-8 border-black whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ SETTING TEMPLATE ]</div>
         <div className="p-4 flex flex-col gap-4 flex-1 overflow-y-auto">
+          
+          <div className="flex flex-col gap-2 border-b-4 border-dashed border-gray-400 pb-4">
+             <span className="font-sys font-bold text-sm">Orientasi Frame:</span>
+             <div className="flex gap-2">
+                <button onClick={() => setOrientation('portrait')} className={`font-pixel text-[10px] flex-1 py-3 border-4 border-black transition-all ${orientation === 'portrait' ? 'text-white translate-y-1 shadow-none' : 'bg-white text-gray-500 shadow-[4px_4px_0_0_#000]'}`} style={orientation === 'portrait' ? {backgroundColor: 'var(--color-primary)'} : {}}>PORTRAIT</button>
+                <button onClick={() => setOrientation('landscape')} className={`font-pixel text-[10px] flex-1 py-3 border-4 border-black transition-all ${orientation === 'landscape' ? 'text-white translate-y-1 shadow-none' : 'bg-white text-gray-500 shadow-[4px_4px_0_0_#000]'}`} style={orientation === 'landscape' ? {backgroundColor: 'var(--color-primary)'} : {}}>LANDSCAPE</button>
+             </div>
+          </div>
+
           <button onClick={() => setSlots([...slots, { top: 50, left: 50, width: 300, height: 200 }])} className="text-black border-4 border-black font-pixel py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-secondary)' }}>[+] TAMBAH SLOT</button>
           <div className="font-sys text-lg border-t-4 border-dashed border-gray-400 pt-4 mt-2">
             {slots.map((slot, i) => (
@@ -179,7 +169,7 @@ function VisualEditor({ template, onSave, onCancel }) {
         </div>
         <div className="p-4 border-t-8 border-black flex gap-2">
           <button onClick={onCancel} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 whitespace-nowrap" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>
-          <button onClick={() => onSave(slots)} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ SIMPAN ]</button>
+          <button onClick={() => onSave(slots, orientation)} className="text-white border-4 border-black font-pixel flex-1 py-3 text-sm shadow-[4px_4px_0_0_#000] hover:translate-y-1 whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ SIMPAN ]</button>
         </div>
       </div>
     </div>
@@ -199,7 +189,6 @@ export default function App() {
   const [dashboardData, setDashboardData] = useState(null); 
   
   const [globalData, setGlobalData] = useState({ hpp_kertas: '', hpp_tinta: '', biaya_ops: '', midtrans_server_key: '', midtrans_client_key: '', app_mode: 'online', active_theme: 'candy' });
-  const [orientationModal, setOrientationModal] = useState(null); 
   const [editingTemplate, setEditingTemplate] = useState(null);   
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -354,7 +343,6 @@ export default function App() {
     const filledPhotos = capturedPhotosRef.current.map(p => p || blankImage);
     store.setCapturedPhotos(filledPhotos); store.setScreen('loading');
     
-    // [REVISI MUTLAK] - MENGIRIMKAN SESSION FOLDER ABSOLUTE KE BACKEND (AKUNTANSI)
     const res = await window.electronAPI.processImages({ 
         photosBase64: filledPhotos, 
         templateId: customerTemplate.id, 
@@ -477,7 +465,6 @@ export default function App() {
   const processStitching = async () => {
     setSessionExpiresAt(null); store.setScreen('loading');
     
-    // [REVISI MUTLAK] - MENGIRIMKAN SESSION FOLDER ABSOLUTE KE BACKEND (AKUNTANSI)
     const res = await window.electronAPI.processImages({ 
         photosBase64: store.capturedPhotos, 
         templateId: customerTemplate.id, 
@@ -559,15 +546,8 @@ export default function App() {
 
     if (store.currentScreen === 'landing') return (
       <div className="flex flex-col items-center justify-center h-screen space-y-12 relative overflow-hidden" style={{ backgroundColor: 'var(--color-bg)' }}>
+        <ArcadeEffects />
         
-        {/* Terrain Bata Retro (Bawah Layar) */}
-        <div className="retro-terrain"></div>
-        {/* Karakter Pixel Abstract (Hanya CSS Box-Shadow) */}
-        <div className="char-naruto"></div>
-        <div className="char-ironman"></div>
-        <div className="char-spidey"></div>
-        <div className="char-frieren"></div>
-
         <div className="absolute top-6 left-6 border-4 border-black px-4 py-2 font-pixel text-xs text-white shadow-[6px_6px_0_0_#000] animate-pulse z-20 whitespace-nowrap" style={{ backgroundColor: 'var(--color-accent)' }}>[ LIVE: {store.activeEvent?.nama_event} ]</div>
         <div className="absolute top-6 right-6 bg-black border-4 px-4 py-2 font-pixel text-xs shadow-[6px_6px_0_0_#000] z-20 whitespace-nowrap" style={{ color: 'var(--color-secondary)', borderColor: 'var(--color-secondary)' }}>MODE: {store.settings?.app_mode?.toUpperCase() || 'ONLINE'}</div>
         
@@ -584,7 +564,6 @@ export default function App() {
       </div>
     );
 
-    // SMART TEMPLATE SELECTOR
     if (store.currentScreen === 'template') {
       const eventTemplates = JSON.parse(store.activeEvent?.templates_json || '[]');
       const hasPortrait = eventTemplates.some(t => t.orientation !== 'landscape');
@@ -632,7 +611,6 @@ export default function App() {
 
     if (store.currentScreen === 'payment') return <div className="flex flex-col items-center justify-center h-screen z-10" style={{ backgroundColor: 'var(--color-bg)' }}><div className="bg-white border-8 border-black w-[500px] p-10 text-center" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}><h2 className="font-pixel text-xl mb-4 whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>Scan QRIS</h2><div className="font-sys text-6xl font-bold mb-8" style={{ color: 'var(--color-accent)' }}>Rp {store.paymentAmount.toLocaleString('id-ID')}</div><div className="w-[320px] h-[320px] mx-auto border-8 border-black flex items-center justify-center bg-gray-100 mb-8">{qrUrl ? <img src={qrUrl} className="w-[90%] h-[90%] object-contain" /> : <div className="animate-spin text-4xl">⏳</div>}</div><div className="font-sys text-xl font-bold text-black p-3 border-4 border-black whitespace-nowrap" style={{ backgroundColor: 'var(--color-secondary)' }}>{statusText}</div></div></div>;
 
-    // ADAPTIVE CAMERA SCREEN
     if (store.currentScreen === 'camera') {
       const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
       const isLandscape = customerTemplate?.orientation === 'landscape';
@@ -653,7 +631,6 @@ export default function App() {
                         [ TEKAN LAYAR UNTUK MULAI TAKE FOTO ]
                     </div>
                 )}
-                {/* [ANTI TERPOTONG / WHITESPACE-NOWRAP] */}
                 {countdown && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 overflow-hidden"><span className="font-pixel text-6xl md:text-8xl drop-shadow-[8px_8px_0_rgba(0,0,0,1)] text-center whitespace-nowrap" style={{ color: 'var(--color-secondary)' }}>{countdown}</span></div>}
               </div>
             </div>
@@ -680,7 +657,6 @@ export default function App() {
       );
     }
 
-    // ADAPTIVE REVIEW SCREEN
     if (store.currentScreen === 'review') {
       const slotsArr = typeof customerTemplate?.slots === 'string' ? JSON.parse(customerTemplate.slots) : (customerTemplate?.slots || []);
       const isLandscape = customerTemplate?.orientation === 'landscape';
@@ -753,12 +729,11 @@ export default function App() {
   };
 
   return (
-    <div className="w-screen h-screen overflow-hidden relative">
-      <ArcadeEffects />
+    <div className="w-screen h-screen overflow-hidden relative flex justify-center items-center bg-black">
       
       {/* OVERLAY KACA CEMBUNG GLOBAL - KHUSUS LANDING ATAU BISA DIAKTIFKAN TERUS */}
       {store.currentScreen === 'landing' && <div className="crt-overlay"></div>}
-      
+      <ArcadeEffects />
       <RetroDialog />
       
       {/* MODAL HAPUS SESI DENGAN CHECKBOX */}
@@ -770,7 +745,7 @@ export default function App() {
                 <div className="flex flex-col gap-4 mb-8">
                     <label className="flex items-center gap-3 font-sys text-xl cursor-pointer">
                         <input type="checkbox" className="w-6 h-6" checked={deleteModal.local} onChange={e=>setDeleteModal({...deleteModal, local: e.target.checked})} />
-                        Hapus Direktori Fisik (Foto & Video Lokal)
+                        Hapus Direktori Fisik
                     </label>
                     <label className="flex items-center gap-3 font-sys text-xl cursor-pointer">
                         <input type="checkbox" className="w-6 h-6" checked={deleteModal.gdrive} onChange={e=>setDeleteModal({...deleteModal, gdrive: e.target.checked})} />
@@ -795,9 +770,11 @@ export default function App() {
         </div>
       )}
 
-      {renderScreen()}
+      <div className="w-full h-full relative z-10">
+          {renderScreen()}
+      </div>
 
-      {/* MODAL 1: LIVE DASHBOARD EVENT */}
+      {/* MODAL DASHBOARD */}
       {isDashboardOpen && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[100] p-10">
           <div className="bg-white border-8 border-black w-full max-w-6xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
@@ -835,7 +812,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: GLOBAL SETTINGS */}
+      {/* MODAL GLOBAL SETTINGS */}
       {isGlobalOpen && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[90] p-10">
           <div className="bg-white border-8 border-black w-full max-w-5xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
@@ -856,32 +833,19 @@ export default function App() {
                   {settingsTab === 'tema' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
                         <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4 whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>Pilih Tema Kiosk</h2>
-                        <p className="font-sys text-sm font-bold text-gray-600 mb-4">*Shortcut ganti tema (Kapan Saja): Ctrl + Arrow Up / Arrow Down</p>
-                        
                         <div className="grid grid-cols-2 gap-6">
-                           {[
-                             { id: 'candy', name: 'Candy', colors: ['#007CC3', '#FFD453', '#FF3B67'] },
-                             { id: 'bumblebee', name: 'Bumblebee', colors: ['#E5A93B', '#FAF2E3', '#754A05'] },
-                             { id: 'neon', name: 'Neon', colors: ['#1E1F22', '#7F56FF', '#80FF56'] },
-                             { id: 'fall', name: 'Fall', colors: ['#354E47', '#FAF2E3', '#DB627A'] }
-                           ].map(t => (
+                           {[{ id: 'candy', name: 'Candy', colors: ['#007CC3', '#FFD453', '#FF3B67'] }, { id: 'bumblebee', name: 'Bumblebee', colors: ['#E5A93B', '#FAF2E3', '#754A05'] }, { id: 'neon', name: 'Neon', colors: ['#1E1F22', '#7F56FF', '#80FF56'] }, { id: 'fall', name: 'Fall', colors: ['#354E47', '#FAF2E3', '#DB627A'] }].map(t => (
                              <div key={t.id} onClick={() => setGlobalData({...globalData, active_theme: t.id})} className="p-4 border-4 cursor-pointer hover:-translate-y-1 transition-all shadow-[6px_6px_0_0_#000] flex flex-col bg-white" style={globalData.active_theme === t.id ? { borderColor: 'var(--color-primary)', outline: '4px solid var(--color-primary)' } : { borderColor: 'black' }}>
                                 <span className="font-pixel text-[10px] mb-3 uppercase font-bold text-center">{t.name}</span>
-                                <div className="flex h-16 w-full border-4 border-black">
-                                   <div className="flex-1" style={{ backgroundColor: t.colors[0] }}></div>
-                                   <div className="flex-1" style={{ backgroundColor: t.colors[1] }}></div>
-                                   <div className="flex-1" style={{ backgroundColor: t.colors[2] }}></div>
-                                </div>
+                                <div className="flex h-16 w-full border-4 border-black"><div className="flex-1" style={{ backgroundColor: t.colors[0] }}></div><div className="flex-1" style={{ backgroundColor: t.colors[1] }}></div><div className="flex-1" style={{ backgroundColor: t.colors[2] }}></div></div>
                              </div>
                            ))}
                         </div>
                      </div>
                   )}
-
                   {settingsTab === 'umum' && (
                      <div className="flex flex-col gap-6 animate-fade-in">
                         <h2 className="font-pixel text-lg border-b-4 border-dashed border-gray-400 pb-4 whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>Pengaturan Umum</h2>
-
                         <div className="flex items-center gap-4 bg-gray-100 p-5 border-4 border-black shadow-[4px_4px_0_0_#000]">
                            <label className="font-bold w-[150px] text-black">Mode Kiosk:</label>
                            <select className="border-4 border-black p-3 outline-none flex-1 font-bold text-black" value={globalData.app_mode} onChange={e=>setGlobalData({...globalData, app_mode: e.target.value})}>
@@ -971,14 +935,14 @@ export default function App() {
       )}
 
       {/* MODAL 3: MASTER TEMPLATE */}
-      {isTemplateOpen && !editingTemplate && !orientationModal && (
+      {isTemplateOpen && !editingTemplate && (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[80] p-10">
           <div className="bg-white border-8 border-black w-full max-w-6xl flex flex-col h-[90vh]" style={{ boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
             <div className="text-white font-pixel border-b-8 border-black p-4 text-sm flex justify-between" style={{ backgroundColor: 'var(--color-primary)' }}><span className="whitespace-nowrap">[ MASTER TEMPLATE LIBRARY ]</span><button onClick={()=>setTemplateOpen(false)} className="hover:text-black font-bold transition-all whitespace-nowrap" style={{ color: 'var(--color-accent)' }}>[ X ]</button></div>
             <div className="p-8 flex flex-col gap-8 overflow-y-auto bg-gray-100">
               <div className="flex justify-between items-center bg-white p-6 border-4 border-black shadow-[8px_8px_0_0_#000]">
                 <div><h2 className="font-pixel text-xl whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>Database Master Template</h2></div>
-                <button onClick={async () => { const path = await window.electronAPI.openFileDialog(); if (path) { const res = await window.electronAPI.saveNewTemplate({ tempPath: path }); if(res.success) { store.fetchTemplates(); setOrientationModal(res.id); } } }} className="text-black font-pixel border-4 border-black px-6 py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-secondary)' }}>[+] UPLOAD PNG BARU</button>
+                <button onClick={async () => { const path = await window.electronAPI.openFileDialog(); if (path) { const res = await window.electronAPI.saveNewTemplate({ tempPath: path }); if(res.success) { store.fetchTemplates(); } } }} className="text-black font-pixel border-4 border-black px-6 py-3 text-xs shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-secondary)' }}>[+] UPLOAD PNG BARU</button>
               </div>
               <div className="grid grid-cols-2 gap-6">
                 {store.templates.map(tpl => (
@@ -992,7 +956,7 @@ export default function App() {
                       <div className="flex gap-4"><label className="text-base font-bold flex items-center gap-2 cursor-pointer text-gray-700"><input type="checkbox" className="w-5 h-5" checked={tpl.is_visible===1} onChange={e=>updateMasterAttr(tpl, 'is_visible', e.target.checked?1:0)} /> Tampil di Kiosk</label></div>
                       <div className="flex items-center gap-3 mt-1"><span className="text-sm font-bold px-3 py-1 border-2 border-black" style={{ backgroundColor: 'var(--color-secondary)' }}>Harga Dasar:</span><input type="text" className="border-4 border-gray-300 p-2 w-32 outline-none font-bold text-lg focus:border-[#007CC3]" value={formatRp(tpl.price)} onChange={(e) => updateMasterAttr(tpl, 'price', parseRp(e.target.value))} /></div>
                       <div className="mt-auto flex gap-3">
-                        <button onClick={() => setOrientationModal(tpl.id)} className="text-white font-pixel border-4 border-black flex-1 py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ Orientasi & Slot ]</button>
+                        <button onClick={() => setEditingTemplate(tpl)} className="text-white font-pixel border-4 border-black flex-1 py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-primary)' }}>[ Setting Template ]</button>
                         <button onClick={async () => { const ok = await store.showDialog("Hapus master template ini selamanya?", "confirm"); if(ok) { await window.electronAPI.deleteTemplate(tpl.id); store.fetchTemplates(); } }} className="text-white font-pixel border-4 border-black px-6 py-3 text-[10px] shadow-[4px_4px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-accent)' }}>[ X ]</button>
                       </div>
                     </div>
@@ -1004,36 +968,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ORIENTATION PICKER MODAL */}
-      {orientationModal && (
-        <div className="fixed inset-0 bg-black/90 flex justify-center items-center z-[90] p-10 animate-fade-in">
-           <div className="border-8 border-black w-full max-w-4xl p-12 flex flex-col text-center" style={{ backgroundColor: 'var(--color-primary)', boxShadow: '16px 16px 0 0 var(--color-secondary)' }}>
-              <h2 className="font-pixel text-xl mb-4 drop-shadow-[4px_4px_0_#000] whitespace-nowrap" style={{ color: 'var(--color-secondary)' }}>Tentukan Orientasi Bingkai</h2>
-              <p className="font-sys text-xl font-bold text-white mb-12 drop-shadow-md">Pilihan ini akan mengatur tata letak adaptif layar kamera pelanggan.</p>
-              
-              <div className="flex gap-10 justify-center mb-12">
-                 <button onClick={() => { const tpl = store.templates.find(t=>t.id === orientationModal); setEditingTemplate({...tpl, orientation: 'portrait'}); setOrientationModal(null); }} className="flex flex-col items-center gap-6 bg-white p-8 border-8 border-black shadow-[12px_12px_0_0_#000] hover:-translate-y-2 transition-all w-[320px]" style={{ ':hover': { boxShadow: '16px 16px 0 0 var(--color-secondary)' } }}>
-                    <div className="w-[200px] h-[160px] border-4 border-gray-400 bg-gray-100 flex gap-2 p-2">
-                       <div className="flex-1 bg-gray-800 flex items-center justify-center text-4xl font-pixel text-white">[ ]</div>
-                       <div className="w-[50px] border-2 flex flex-col gap-1 p-1" style={{ backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/></div>
-                    </div>
-                    <span className="font-pixel text-sm whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>PORTRAIT<br/><span className="text-xs text-gray-500">(Berdiri)</span></span>
-                 </button>
-
-                 <button onClick={() => { const tpl = store.templates.find(t=>t.id === orientationModal); setEditingTemplate({...tpl, orientation: 'landscape'}); setOrientationModal(null); }} className="flex flex-col items-center gap-6 bg-white p-8 border-8 border-black shadow-[12px_12px_0_0_#000] hover:-translate-y-2 transition-all w-[320px]" style={{ ':hover': { boxShadow: '16px 16px 0 0 var(--color-secondary)' } }}>
-                    <div className="w-[200px] h-[160px] border-4 border-gray-400 bg-gray-100 flex flex-col gap-2 p-2">
-                       <div className="flex-1 bg-gray-800 flex items-center justify-center text-4xl font-pixel text-white">[ ]</div>
-                       <div className="h-[40px] border-2 flex gap-1 p-1" style={{ backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/><div className="flex-1 bg-white"/></div>
-                    </div>
-                    <span className="font-pixel text-sm whitespace-nowrap" style={{ color: 'var(--color-primary)' }}>LANDSCAPE<br/><span className="text-xs text-gray-500">(Tidur)</span></span>
-                 </button>
-              </div>
-              <button onClick={() => setOrientationModal(null)} className="text-white border-4 border-black font-pixel py-4 text-sm w-[250px] mx-auto shadow-[6px_6px_0_0_#000] hover:translate-y-1 transition-all whitespace-nowrap" style={{ backgroundColor: 'var(--color-accent)' }}>[ BATAL ]</button>
-           </div>
-        </div>
-      )}
-
-      {editingTemplate && <VisualEditor template={editingTemplate} onCancel={()=>setEditingTemplate(null)} onSave={async(s) => { await updateMasterAttr(editingTemplate, 'slots', s); await updateMasterAttr(editingTemplate, 'orientation', editingTemplate.orientation); setEditingTemplate(null); store.showDialog("Koordinat & Orientasi Disimpan!"); }} />}
+      {editingTemplate && <VisualEditor template={editingTemplate} onCancel={()=>setEditingTemplate(null)} onSave={async(s, newOrientation) => { await window.electronAPI.updateTemplate({ ...editingTemplate, slots: s, orientation: newOrientation }); store.fetchTemplates(); setEditingTemplate(null); store.showDialog("Setting Template Disimpan!"); }} />}
     </div>
   );
 }

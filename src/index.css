@@ -1,55 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-retro-bg overflow-hidden select-none;
+/* ==========================================
+   PEMBUNUH SCROLLBAR BAWAAN OS WINDOWS
+========================================== */
+::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
+body {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+    overscroll-behavior-y: none; /* Mencegah layar tertarik/pull-to-refresh saat disentuh */
+    user-select: none; /* Mencegah teks ter-highlight secara tidak sengaja oleh sentuhan */
+}
+
+/* Utilitas tambahan jika ada div spesifik yang butuh disembunyikan scrollnya */
+.hide-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.hide-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* ==========================================
+   TEMA KOMPONEN RETRO KUSTOM ANDA
+========================================== */
 @layer components {
   .retro-window {
-    @apply bg-retro-window border-4 border-retro-border shadow-[8px_8px_0px_0px_rgba(51,51,51,1)];
+    @apply border-[6px] border-gray-900 shadow-[12px_12px_0_0_rgba(0,0,0,1)] relative;
   }
-  
   .retro-header {
-    @apply bg-retro-header border-b-4 border-retro-border px-4 py-2 font-pixel text-white flex justify-between items-center text-sm tracking-widest;
+    @apply bg-blue-800 text-white font-pixel p-3 text-lg border-b-[6px] border-gray-900;
   }
-  
   .retro-btn {
-    @apply bg-retro-success border-4 border-retro-border font-pixel text-white shadow-[4px_4px_0px_0px_rgba(51,51,51,1)] 
-    active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all cursor-pointer;
+    @apply bg-blue-600 border-[4px] border-gray-900 font-pixel text-white hover:bg-blue-800 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0_0_#222] transition-all;
   }
-  
   .retro-btn-danger {
-    @apply bg-retro-header border-4 border-retro-border font-pixel text-white shadow-[4px_4px_0px_0px_rgba(51,51,51,1)] 
-    active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all cursor-pointer;
+    @apply bg-red-600 border-[4px] border-gray-900 font-pixel text-white hover:bg-red-800 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0_0_#222] transition-all;
   }
-}
-
-/* =========================================
-   VISUAL EDITOR STYLES (SET 3)
-   ========================================= */
-.editor-canvas-container {
-  @apply relative overflow-hidden border-4 border-retro-border bg-gray-200 shadow-inner;
-  /* Pattern kotak-kotak transparan ala Photoshop */
-  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), 
-                    linear-gradient(-45deg, #ccc 25%, transparent 25%), 
-                    linear-gradient(45deg, transparent 75%, #ccc 75%), 
-                    linear-gradient(-45deg, transparent 75%, #ccc 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-}
-
-.slot-box {
-  @apply absolute border-4 border-blue-500 bg-blue-500/30 flex items-center justify-center font-pixel text-white text-2xl drop-shadow-md cursor-grab;
-}
-
-.slot-box:active {
-  @apply cursor-grabbing bg-blue-500/50;
-}
-
-.resize-handle {
-  @apply absolute right-[-6px] bottom-[-6px] w-[16px] h-[16px] bg-red-500 border-2 border-white cursor-se-resize rounded-full;
+  .slot-box {
+    @apply absolute border-4 border-dashed border-red-500 bg-red-500/30 flex items-center justify-center font-bold text-red-500 text-3xl select-none cursor-move;
+  }
+  .resize-handle {
+    @apply absolute bottom-0 right-0 w-8 h-8 bg-red-600 border-2 border-white cursor-se-resize;
+  }
+  .editor-canvas-container {
+    background-color: #333;
+    background-image: linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444), linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444);
+    background-size: 20px 20px;
+    background-position: 0 0, 10px 10px;
+  }
 }

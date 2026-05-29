@@ -24,7 +24,8 @@ db.exec(`
         is_visible INTEGER DEFAULT 1,
         width INTEGER,
         height INTEGER,
-        slots_json TEXT DEFAULT '[]'
+        slots_json TEXT DEFAULT '[]',
+        orientation TEXT DEFAULT 'portrait'
     );
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +56,9 @@ if (stmt.get().count === 0) {
     `).run(3000, 2000, 0, '', '', 'online');
 }
 
-// FORCE MIGRATION
+// ==========================================
+// FORCE MIGRATION (ANTI DATA HILANG)
+// ==========================================
 try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
@@ -63,12 +66,15 @@ try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
 
-// KOLOM FITUR BARU FASE 3
+// KOLOM FITUR QR & HARDWARE
 try { db.exec("ALTER TABLE settings ADD COLUMN static_qr_path TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN force_static_qr INTEGER DEFAULT 0"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN gdrive_folder_id TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN selected_camera TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN selected_printer TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN hw_bypass_mode INTEGER DEFAULT 0"); } catch(e) {}
+
+// KOLOM FITUR ORIENTASI TEMPLATE
+try { db.exec("ALTER TABLE templates ADD COLUMN orientation TEXT DEFAULT 'portrait'"); } catch(e) {}
 
 module.exports = db;

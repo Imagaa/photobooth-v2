@@ -5,11 +5,21 @@ export const useStore = create((set) => ({
     activeEvent: null, recentEvents: [],
     currentScreen: 'loading', sessionFolder: null, capturedPhotos: [], retakesLeft: 3, paymentAmount: 0, nextScreenAfterPayment: 'camera', 
     
-    // STATE HARDWARE & KASIR BARU
+    // STATE HARDWARE & KASIR
     isHardwareReady: false,
     waitingForPayment: false,
     setHardwareReady: (status) => set({ isHardwareReady: status }),
     setWaitingForPayment: (status) => set({ waitingForPayment: status }),
+
+    // [BARU] STATE UNTUK RETRO DIALOG GLOBAL
+    dialog: { isOpen: false, message: '', type: 'alert', resolve: null },
+    showDialog: (message, type = 'alert') => new Promise((resolve) => {
+        set({ dialog: { isOpen: true, message, type, resolve } });
+    }),
+    closeDialog: (result) => set((state) => {
+        if (state.dialog.resolve) state.dialog.resolve(result);
+        return { dialog: { isOpen: false, message: '', type: 'alert', resolve: null } };
+    }),
 
     setScreen: (screen) => set({ currentScreen: screen }),
     setSessionFolder: (path) => set({ sessionFolder: path }),

@@ -51,24 +51,41 @@ app.whenReady().then(() => {
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>SayGumi! Cashier</title>
+                <title>SayGumi! Cashier Hub</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; }
+                    .card { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #555; text-align: center; }
+                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; border-radius: 5px; }
+                    .btn-verify { background: #4CAF50; color: white; margin-top: 20px; }
+                    .btn-danger { background: #f44336; color: white; }
+                    .btn-warning { background: #ffeb3b; color: #000; }
+                </style>
                 <script>
                     async function loadPending() {
-                        const data = await (await fetch('/api/pending')).json();
-                        const c = document.getElementById('pending');
-                        if(!data.name) c.innerHTML = '<p style="color:#888;">Tidak ada antrean.</p>';
-                        else c.innerHTML = '<div style="background:#333;padding:20px;border-radius:8px;"><h2>👤 ' + data.name + '</h2><p style="color:#aaa;">' + data.template + '</p><h1 style="color:#4CAF50;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button onclick="verify()" style="padding:15px;background:#4CAF50;color:#fff;border:none;width:100%;font-size:18px;font-weight:bold;border-radius:5px;">✅ Verifikasi & Loloskan</button></div>';
+                        try {
+                            const res = await fetch('/api/pending');
+                            const data = await res.json();
+                            const container = document.getElementById('pending-container');
+                            if(!data || !data.name) {
+                                container.innerHTML = '<p style="text-align:center; color:#888; margin: 40px 0;">Tidak ada pelanggan yang menunggu verifikasi pembayaran.</p>';
+                            } else {
+                                container.innerHTML = '<div class="card"><h2 style="margin-top:0;">👤 ' + data.name + '</h2><p style="color:#aaa;">Frame: ' + data.template + '</p><h1 style="color:#4CAF50; font-size: 32px; margin: 10px 0;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button class="btn btn-verify" onclick="verify()">✅ Verifikasi & Loloskan</button></div>';
+                            }
+                        } catch(e) {}
                     }
                     async function verify() { await fetch('/api/verify'); loadPending(); }
-                    setInterval(loadPending, 2000); window.onload = loadPending;
+                    setInterval(loadPending, 2000);
+                    window.onload = loadPending;
                 </script>
             </head>
-            <body style="font-family:sans-serif; background:#222; color:#fff; text-align:center; padding:20px;">
-                <h2>📸 SayGumi! Cashier</h2>
-                <div id="pending">Memuat...</div>
-                <hr style="border-color:#444; margin:40px 0;" />
-                <button onclick="if(confirm('Tutup Sesi Berjalan?')) fetch('/api/close')" style="padding:15px;width:100%;background:#ffeb3b;margin-bottom:10px;font-weight:bold;border:none;border-radius:5px;">🔒 Tutup Sesi Event</button>
-                <button onclick="if(confirm('Restart Kiosk?')) fetch('/api/restart')" style="padding:15px;width:100%;background:#f44336;color:#fff;font-weight:bold;border:none;border-radius:5px;">🔄 Restart Aplikasi</button>
+            <body>
+                <h2 style="text-align:center; margin-bottom: 30px;">📸 SayGumi! Cashier</h2>
+                <h3 style="color: #aaa;">Antrean Pembayaran:</h3>
+                <div id="pending-container">Memuat...</div>
+                <hr style="border-color: #444; margin: 40px 0;" />
+                <h3 style="color: #aaa;">Remote Control Mesin:</h3>
+                <button class="btn btn-warning" onclick="if(confirm('Akhiri dan Tutup Event Berjalan?')) fetch('/api/close')">🔒 Tutup Sesi Event</button>
+                <button class="btn btn-danger" onclick="if(confirm('Restart aplikasi Photobooth?')) fetch('/api/restart')">🔄 Restart Aplikasi</button>
             </body>
             </html>
         `);
@@ -151,17 +168,26 @@ ipcMain.handle('close-event', (event, eventId) => { db.prepare('UPDATE events SE
 
 ipcMain.handle('get-templates', () => db.prepare('SELECT * FROM templates ORDER BY id DESC').all().map(r => ({ ...r, slots: JSON.parse(r.slots_json) })));
 ipcMain.handle('open-file-dialog', async () => { const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png'] }] }); return res.canceled ? null : res.filePaths[0]; });
+
+// [BARU]: Inject default orientation saat upload template baru
 ipcMain.handle('save-new-template', async (event, { tempPath }) => {
     try {
         const metadata = await sharp(tempPath).metadata();
         const filename = `tpl-${Date.now()}.png`;
         fs.copyFileSync(tempPath, path.join(USER_TEMPLATES_PATH, filename));
-        const info = db.prepare(`INSERT INTO templates (filename, filepath, width, height, price, is_visible, slots_json) VALUES (?, ?, ?, ?, ?, 1, '[]')`)
+        const info = db.prepare(`INSERT INTO templates (filename, filepath, width, height, price, is_visible, slots_json, orientation) VALUES (?, ?, ?, ?, ?, 1, '[]', 'portrait')`)
           .run(filename, path.join(USER_TEMPLATES_PATH, filename), metadata.width, metadata.height, 15000);
         return { success: true, id: info.lastInsertRowid };
     } catch (e) { return { success: false, error: e.message }; }
 });
-ipcMain.handle('update-template', async (event, data) => { db.prepare(`UPDATE templates SET price=?, is_visible=?, slots_json=? WHERE id=?`).run(data.price || 0, data.is_visible ? 1 : 0, JSON.stringify(data.slots || []), data.id); return { success: true }; });
+
+// [BARU]: Update data orientation saat template disimpan/diubah
+ipcMain.handle('update-template', async (event, data) => { 
+    db.prepare(`UPDATE templates SET price=?, is_visible=?, slots_json=?, orientation=? WHERE id=?`)
+      .run(data.price || 0, data.is_visible ? 1 : 0, JSON.stringify(data.slots || []), data.orientation || 'portrait', data.id); 
+    return { success: true }; 
+});
+
 ipcMain.handle('delete-template', async (event, id) => { const tpl = db.prepare('SELECT filepath FROM templates WHERE id=?').get(id); if (tpl && fs.existsSync(tpl.filepath)) fs.unlinkSync(tpl.filepath); db.prepare('DELETE FROM templates WHERE id=?').run(id); return { success: true }; });
 
 ipcMain.handle('start-customer-session', async (event, eventId) => {

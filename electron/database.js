@@ -5,9 +5,6 @@ const { app } = require('electron');
 const dbPath = path.join(app.getPath('userData'), 'photobooth_v2.db');
 const db = new Database(dbPath);
 
-// ==========================================
-// INISIALISASI TABEL
-// ==========================================
 db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,9 +13,8 @@ db.exec(`
         biaya_ops INTEGER DEFAULT 0,
         midtrans_server_key TEXT DEFAULT '',
         midtrans_client_key TEXT DEFAULT '',
-        app_mode TEXT DEFAULT 'online' 
+        app_mode TEXT DEFAULT 'online'
     );
-    
     CREATE TABLE IF NOT EXISTS templates (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename TEXT UNIQUE,
@@ -30,7 +26,6 @@ db.exec(`
         height INTEGER,
         slots_json TEXT DEFAULT '[]'
     );
-    
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nama_event TEXT,
@@ -40,7 +35,6 @@ db.exec(`
         templates_json TEXT DEFAULT '[]',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id INTEGER,
@@ -61,15 +55,15 @@ if (stmt.get().count === 0) {
     `).run(3000, 2000, 0, '', '', 'online');
 }
 
-// ==========================================
 // FORCE MIGRATION
-// ==========================================
 try { db.exec("ALTER TABLE sessions ADD COLUMN event_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN customer_name TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN folder_name TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN waktu TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN harga_jual INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sessions ADD COLUMN status_cetak TEXT"); } catch(e) {}
+
+// KOLOM FITUR BARU FASE 3
 try { db.exec("ALTER TABLE settings ADD COLUMN static_qr_path TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN force_static_qr INTEGER DEFAULT 0"); } catch(e) {}
 try { db.exec("ALTER TABLE settings ADD COLUMN gdrive_folder_id TEXT DEFAULT ''"); } catch(e) {}

@@ -17,7 +17,6 @@ if (!fs.existsSync(USER_TEMPLATES_PATH)) fs.mkdirSync(USER_TEMPLATES_PATH, { rec
 if (!fs.existsSync(OUTPUT_PATH)) fs.mkdirSync(OUTPUT_PATH, { recursive: true });
 if (!fs.existsSync(STATIC_QR_PATH)) fs.mkdirSync(STATIC_QR_PATH, { recursive: true });
 
-// [BARU] Memori Antrean Kasir
 let currentPendingCustomer = null; 
 
 const expressApp = express();
@@ -45,51 +44,31 @@ app.whenReady().then(() => {
 
     expressApp.use('/download', express.static(OUTPUT_PATH));
     expressApp.use('/templates', express.static(USER_TEMPLATES_PATH));
-    expressApp.use('/qr', express.static(STATIC_QR_PATH)); // Membuka jalur akses QR Statis
+    expressApp.use('/qr', express.static(STATIC_QR_PATH));
 
-    // ==========================================
-    // UI WEB REMOTE CASHIER (HP ADMIN)
-    // ==========================================
     expressApp.get('/admin', (req, res) => {
         res.send(`
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>SayGumi! Cashier Hub</title>
-                <style>
-                    body { font-family: sans-serif; padding: 20px; background: #222; color: #fff; }
-                    .card { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #555; text-align: center; }
-                    .btn { display: block; width: 100%; padding: 15px; margin-bottom: 15px; font-size: 16px; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; border-radius: 5px; }
-                    .btn-verify { background: #4CAF50; color: white; margin-top: 20px; }
-                    .btn-danger { background: #f44336; color: white; }
-                    .btn-warning { background: #ffeb3b; color: #000; }
-                </style>
+                <title>SayGumi! Cashier</title>
                 <script>
                     async function loadPending() {
-                        try {
-                            const res = await fetch('/api/pending');
-                            const data = await res.json();
-                            const container = document.getElementById('pending-container');
-                            if(!data || !data.name) {
-                                container.innerHTML = '<p style="text-align:center; color:#888; margin: 40px 0;">Tidak ada pelanggan yang menunggu verifikasi pembayaran.</p>';
-                            } else {
-                                container.innerHTML = '<div class="card"><h2 style="margin-top:0;">👤 ' + data.name + '</h2><p style="color:#aaa;">Frame: ' + data.template + '</p><h1 style="color:#4CAF50; font-size: 32px; margin: 10px 0;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button class="btn btn-verify" onclick="verify()">✅ Verifikasi & Loloskan</button></div>';
-                            }
-                        } catch(e) {}
+                        const data = await (await fetch('/api/pending')).json();
+                        const c = document.getElementById('pending');
+                        if(!data.name) c.innerHTML = '<p style="color:#888;">Tidak ada antrean.</p>';
+                        else c.innerHTML = '<div style="background:#333;padding:20px;border-radius:8px;"><h2>👤 ' + data.name + '</h2><p style="color:#aaa;">' + data.template + '</p><h1 style="color:#4CAF50;">Rp ' + data.price.toLocaleString('id-ID') + '</h1><button onclick="verify()" style="padding:15px;background:#4CAF50;color:#fff;border:none;width:100%;font-size:18px;font-weight:bold;border-radius:5px;">✅ Verifikasi & Loloskan</button></div>';
                     }
                     async function verify() { await fetch('/api/verify'); loadPending(); }
-                    setInterval(loadPending, 2000);
-                    window.onload = loadPending;
+                    setInterval(loadPending, 2000); window.onload = loadPending;
                 </script>
             </head>
-            <body>
-                <h2 style="text-align:center; margin-bottom: 30px;">📸 SayGumi! Cashier</h2>
-                <h3 style="color: #aaa;">Antrean Pembayaran:</h3>
-                <div id="pending-container">Memuat...</div>
-                <hr style="border-color: #444; margin: 40px 0;" />
-                <h3 style="color: #aaa;">Remote Control Mesin:</h3>
-                <button class="btn btn-warning" onclick="if(confirm('Akhiri dan Tutup Event Berjalan?')) fetch('/api/close')">🔒 Tutup Sesi Event</button>
-                <button class="btn btn-danger" onclick="if(confirm('Restart aplikasi Photobooth?')) fetch('/api/restart')">🔄 Restart Aplikasi</button>
+            <body style="font-family:sans-serif; background:#222; color:#fff; text-align:center; padding:20px;">
+                <h2>📸 SayGumi! Cashier</h2>
+                <div id="pending">Memuat...</div>
+                <hr style="border-color:#444; margin:40px 0;" />
+                <button onclick="if(confirm('Tutup Sesi Berjalan?')) fetch('/api/close')" style="padding:15px;width:100%;background:#ffeb3b;margin-bottom:10px;font-weight:bold;border:none;border-radius:5px;">🔒 Tutup Sesi Event</button>
+                <button onclick="if(confirm('Restart Kiosk?')) fetch('/api/restart')" style="padding:15px;width:100%;background:#f44336;color:#fff;font-weight:bold;border:none;border-radius:5px;">🔄 Restart Aplikasi</button>
             </body>
             </html>
         `);
@@ -108,10 +87,9 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280, height: 720, 
-        fullscreen: true,       // Mode layar penuh Windows
+        fullscreen: true,       
         autoHideMenuBar: true,  
         frame: false,           
-        // kiosk: true DIHAPUS agar keyboard PC tetap berfungsi
         webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
     });
     if (process.env.NODE_ENV === 'development') { mainWindow.loadURL('http://localhost:5173'); } 
@@ -121,45 +99,34 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 
 ipcMain.handle('ping', () => 'PONG');
 ipcMain.handle('get-server-ip', () => serverIP);
-ipcMain.handle('get-settings', () => db.prepare('SELECT * FROM settings WHERE id=1').get());
 
-// [BUG FIXED]: Fungsi Save-Settings kini menyimpan kolom baru
+ipcMain.handle('get-settings', () => db.prepare('SELECT * FROM settings WHERE id=1').get());
 ipcMain.handle('save-settings', (event, data) => {
-    const stmt = db.prepare(`
+    db.prepare(`
         UPDATE settings SET 
-        hpp_kertas=?, hpp_tinta=?, biaya_ops=?, 
-        midtrans_server_key=?, midtrans_client_key=?, app_mode=?,
-        static_qr_path=?, force_static_qr=?, gdrive_folder_id=?,
-        selected_camera=?, selected_printer=?, hw_bypass_mode=?
+        hpp_kertas=?, hpp_tinta=?, biaya_ops=?, midtrans_server_key=?, midtrans_client_key=?, app_mode=?,
+        static_qr_path=?, force_static_qr=?, gdrive_folder_id=?, selected_camera=?, selected_printer=?, hw_bypass_mode=?
         WHERE id=1
-    `);
-    stmt.run(
-        data.hpp_kertas || 0, data.hpp_tinta || 0, data.biaya_ops || 0, 
-        data.midtrans_server_key || '', data.midtrans_client_key || '', data.app_mode || 'online',
-        data.static_qr_path || '', data.force_static_qr || 0, data.gdrive_folder_id || '',
-        data.selected_camera || '', data.selected_printer || '', data.hw_bypass_mode || 0
+    `).run(
+        data.hpp_kertas || 0, data.hpp_tinta || 0, data.biaya_ops || 0, data.midtrans_server_key || '', data.midtrans_client_key || '', data.app_mode || 'online',
+        data.static_qr_path || '', data.force_static_qr ? 1 : 0, data.gdrive_folder_id || '', data.selected_camera || '', data.selected_printer || '', data.hw_bypass_mode ? 1 : 0
     );
     return true;
 });
 
-// MEMORI KASIR
 ipcMain.handle('set-pending-payment', (e, data) => { currentPendingCustomer = data; return true; });
 ipcMain.handle('clear-pending-payment', (e) => { currentPendingCustomer = null; return true; });
 
-// HARDWARE & QR FILE
 ipcMain.handle('check-hardware', async () => {
-    try {
-        const printers = await mainWindow.webContents.getPrintersAsync();
-        return { success: true, printers: printers };
-    } catch (error) { return { success: false, error: error.message }; }
+    try { return { success: true, printers: await mainWindow.webContents.getPrintersAsync() }; } 
+    catch (error) { return { success: false, error: error.message }; }
 });
 
 ipcMain.handle('select-static-qr', async () => {
     const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }] });
     if (res.canceled) return null;
     const filename = `qr-statis-${Date.now()}${path.extname(res.filePaths[0])}`;
-    const newPath = path.join(STATIC_QR_PATH, filename);
-    fs.copyFileSync(res.filePaths[0], newPath);
+    fs.copyFileSync(res.filePaths[0], path.join(STATIC_QR_PATH, filename));
     return filename; 
 });
 
@@ -188,10 +155,9 @@ ipcMain.handle('save-new-template', async (event, { tempPath }) => {
     try {
         const metadata = await sharp(tempPath).metadata();
         const filename = `tpl-${Date.now()}.png`;
-        const newPath = path.join(USER_TEMPLATES_PATH, filename);
-        fs.copyFileSync(tempPath, newPath);
+        fs.copyFileSync(tempPath, path.join(USER_TEMPLATES_PATH, filename));
         const info = db.prepare(`INSERT INTO templates (filename, filepath, width, height, price, is_visible, slots_json) VALUES (?, ?, ?, ?, ?, 1, '[]')`)
-          .run(filename, newPath, metadata.width, metadata.height, 15000);
+          .run(filename, path.join(USER_TEMPLATES_PATH, filename), metadata.width, metadata.height, 15000);
         return { success: true, id: info.lastInsertRowid };
     } catch (e) { return { success: false, error: e.message }; }
 });

@@ -7,14 +7,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveSettings: (data) => ipcRenderer.invoke('save-settings', data),
     getServerIP: () => ipcRenderer.invoke('get-server-ip'), 
     
-    // [BARU] Hardware, File Picker, & Listener HP Admin
     checkHardware: () => ipcRenderer.invoke('check-hardware'),
     selectStaticQR: () => ipcRenderer.invoke('select-static-qr'),
     onRemoteVerify: (callback) => ipcRenderer.on('remote-verify', () => callback()),
     onRemoteClose: (callback) => ipcRenderer.on('remote-close', () => callback()),
     onRemoteRestart: (callback) => ipcRenderer.on('remote-restart', () => callback()),
     
-    // [BARU] Memori Antrean Kasir
     setPendingPayment: (data) => ipcRenderer.invoke('set-pending-payment', data),
     clearPendingPayment: () => ipcRenderer.invoke('clear-pending-payment'),
 

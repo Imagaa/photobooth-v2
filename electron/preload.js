@@ -30,9 +30,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateTemplate: (data) => ipcRenderer.invoke('update-template', data),
     deleteTemplate: (id) => ipcRenderer.invoke('delete-template', id),
 
-    startCustomerSession: (eventId) => ipcRenderer.invoke('start-customer-session', eventId),
+    // [REVISI] Menerima objek data (berisi eventId dan customerName)
+    startCustomerSession: (data) => ipcRenderer.invoke('start-customer-session', data),
     saveCapture: (data) => ipcRenderer.invoke('save-capture', data),
     processImages: (data) => ipcRenderer.invoke('process-images', data),
+    
+    // [BARU] Menyimpan file video sesi (format webm)
+    saveVideo: (data) => ipcRenderer.invoke('save-video', data),
     
     createQris: (amount) => ipcRenderer.invoke('create-qris', amount),
     checkPayment: (orderId) => ipcRenderer.invoke('check-payment', orderId)

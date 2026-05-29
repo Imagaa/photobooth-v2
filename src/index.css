@@ -1,6 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==========================================
+   TEMA DINAMIS (CSS VARIABLES)
+========================================== */
+:root {
+  /* Default (Candy) */
+  --color-primary: #007CC3;
+  --color-secondary: #FFD453;
+  --color-accent: #FF3B67;
+  --color-bg: #007CC3;
+}
+
+body.theme-candy {
+  --color-primary: #007CC3;
+  --color-secondary: #FFD453;
+  --color-accent: #FF3B67;
+  --color-bg: #007CC3;
+}
+
+body.theme-bumblebee {
+  --color-primary: #E5A93B;
+  --color-secondary: #FAF2E3;
+  --color-accent: #754A05;
+  --color-bg: #E5A93B;
+}
+
+body.theme-neon {
+  --color-primary: #1E1F22;
+  --color-secondary: #7F56FF;
+  --color-accent: #80FF56;
+  --color-bg: #1E1F22;
+}
+
+body.theme-fall {
+  --color-primary: #354E47;
+  --color-secondary: #FAF2E3;
+  --color-accent: #DB627A;
+  --color-bg: #354E47;
+}
+
+/* ==========================================
+   TRANSISI TEMA MULUS (SHIFTING 0.5s)
+========================================== */
+body, div, p, h1, h2, h3, span, button, input, select {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.5s;
+  transition-timing-function: ease-in-out;
+}
 
 /* ==========================================
    PEMBUNUH SCROLLBAR BAWAAN OS WINDOWS
@@ -12,13 +62,13 @@
 }
 
 body {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-    overscroll-behavior-y: none; /* Mencegah layar tertarik/pull-to-refresh saat disentuh */
-    user-select: none; /* Mencegah teks ter-highlight secara tidak sengaja oleh sentuhan */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overscroll-behavior-y: none;
+    user-select: none;
+    background-color: var(--color-bg);
 }
 
-/* Utilitas tambahan jika ada div spesifik yang butuh disembunyikan scrollnya */
 .hide-scroll {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -30,28 +80,31 @@ body {
 /* ==========================================
    TEMA KOMPONEN RETRO KUSTOM ANDA
 ========================================== */
+/* Memaksa font Minecraft di seluruh elemen dengan kelas ini */
+.font-pixel {
+    font-family: 'Press Start 2P', system-ui, cursive !important;
+}
+
 @layer components {
-  .retro-window {
-    @apply border-[6px] border-gray-900 shadow-[12px_12px_0_0_rgba(0,0,0,1)] relative;
-  }
-  .retro-header {
-    @apply bg-blue-800 text-white font-pixel p-3 text-lg border-b-[6px] border-gray-900;
-  }
-  .retro-btn {
-    @apply bg-blue-600 border-[4px] border-gray-900 font-pixel text-white hover:bg-blue-800 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0_0_#222] transition-all;
-  }
-  .retro-btn-danger {
-    @apply bg-red-600 border-[4px] border-gray-900 font-pixel text-white hover:bg-red-800 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0_0_#222] transition-all;
-  }
   .slot-box {
-    @apply absolute border-4 border-dashed border-red-500 bg-red-500/30 flex items-center justify-center font-bold text-red-500 text-3xl select-none cursor-move;
+    @apply absolute border-4 border-dashed bg-black/30 flex items-center justify-center font-bold text-3xl select-none cursor-move;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    /* Matikan animasi di slot agar Kiosk tidak lag saat drag & drop */
+    transition: none !important; 
   }
   .resize-handle {
-    @apply absolute bottom-0 right-0 w-8 h-8 bg-red-600 border-2 border-white cursor-se-resize;
+    @apply absolute -bottom-4 -right-4 w-12 h-12 bg-transparent cursor-se-resize flex items-center justify-center;
+    transition: none !important;
+  }
+  .resize-handle-inner {
+    @apply w-6 h-6 border-4 border-black pointer-events-none;
+    background-color: var(--color-secondary);
+    transition: none !important;
   }
   .editor-canvas-container {
-    background-color: #333;
-    background-image: linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444), linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%, #444);
+    background-color: var(--color-primary);
+    background-image: linear-gradient(45deg, rgba(0,0,0,0.15) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0.15)), linear-gradient(45deg, rgba(0,0,0,0.15) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0.15));
     background-size: 20px 20px;
     background-position: 0 0, 10px 10px;
   }

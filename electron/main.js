@@ -118,15 +118,19 @@ ipcMain.handle('ping', () => 'PONG');
 ipcMain.handle('get-server-ip', () => serverIP);
 
 ipcMain.handle('get-settings', () => db.prepare('SELECT * FROM settings WHERE id=1').get());
+
+// [REVISI] Menyimpan konfigurasi active_theme ke dalam database SQLite
 ipcMain.handle('save-settings', (event, data) => {
     db.prepare(`
         UPDATE settings SET 
         hpp_kertas=?, hpp_tinta=?, biaya_ops=?, midtrans_server_key=?, midtrans_client_key=?, app_mode=?,
-        static_qr_path=?, force_static_qr=?, gdrive_folder_id=?, selected_camera=?, selected_printer=?, hw_bypass_mode=?
+        static_qr_path=?, force_static_qr=?, gdrive_folder_id=?, selected_camera=?, selected_printer=?, hw_bypass_mode=?,
+        active_theme=?
         WHERE id=1
     `).run(
         data.hpp_kertas || 0, data.hpp_tinta || 0, data.biaya_ops || 0, data.midtrans_server_key || '', data.midtrans_client_key || '', data.app_mode || 'online',
-        data.static_qr_path || '', data.force_static_qr ? 1 : 0, data.gdrive_folder_id || '', data.selected_camera || '', data.selected_printer || '', data.hw_bypass_mode ? 1 : 0
+        data.static_qr_path || '', data.force_static_qr ? 1 : 0, data.gdrive_folder_id || '', data.selected_camera || '', data.selected_printer || '', data.hw_bypass_mode ? 1 : 0,
+        data.active_theme || 'candy'
     );
     return true;
 });
@@ -169,7 +173,6 @@ ipcMain.handle('close-event', (event, eventId) => { db.prepare('UPDATE events SE
 ipcMain.handle('get-templates', () => db.prepare('SELECT * FROM templates ORDER BY id DESC').all().map(r => ({ ...r, slots: JSON.parse(r.slots_json) })));
 ipcMain.handle('open-file-dialog', async () => { const res = await dialog.showOpenDialog({ filters: [{ name: 'Images', extensions: ['png'] }] }); return res.canceled ? null : res.filePaths[0]; });
 
-// [BARU]: Inject default orientation saat upload template baru
 ipcMain.handle('save-new-template', async (event, { tempPath }) => {
     try {
         const metadata = await sharp(tempPath).metadata();
@@ -181,7 +184,6 @@ ipcMain.handle('save-new-template', async (event, { tempPath }) => {
     } catch (e) { return { success: false, error: e.message }; }
 });
 
-// [BARU]: Update data orientation saat template disimpan/diubah
 ipcMain.handle('update-template', async (event, data) => { 
     db.prepare(`UPDATE templates SET price=?, is_visible=?, slots_json=?, orientation=? WHERE id=?`)
       .run(data.price || 0, data.is_visible ? 1 : 0, JSON.stringify(data.slots || []), data.orientation || 'portrait', data.id); 
@@ -190,16 +192,36 @@ ipcMain.handle('update-template', async (event, data) => {
 
 ipcMain.handle('delete-template', async (event, id) => { const tpl = db.prepare('SELECT filepath FROM templates WHERE id=?').get(id); if (tpl && fs.existsSync(tpl.filepath)) fs.unlinkSync(tpl.filepath); db.prepare('DELETE FROM templates WHERE id=?').run(id); return { success: true }; });
 
-ipcMain.handle('start-customer-session', async (event, eventId) => {
+// [REVISI MUTLAK] Membuat struktur folder dinamis: YYYY-MM-DD_HH-MM-SS_Nama_Customer
+ipcMain.handle('start-customer-session', async (event, { eventId, customerName }) => {
     const ev = db.prepare('SELECT folder_name FROM events WHERE id=?').get(eventId);
-    const sessionDir = path.join(OUTPUT_PATH, ev.folder_name, `${new Date().toTimeString().split(' ')[0].replace(/:/g, '-')}_Customer`);
+    
+    const now = new Date();
+    const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+    const timeStr = String(now.getHours()).padStart(2, '0') + "-" + String(now.getMinutes()).padStart(2, '0') + "-" + String(now.getSeconds()).padStart(2, '0');
+    
+    const safeName = customerName ? customerName.replace(/[^a-zA-Z0-9]/g, '_') : 'TanpaNama';
+    const folderName = `${dateStr}_${timeStr}_${safeName}`;
+    
+    const sessionDir = path.join(OUTPUT_PATH, ev.folder_name, folderName);
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
-    return sessionDir;
+    
+    return sessionDir; // Path folder mutlak dikembalikan ke React untuk menyimpan RAW dan Video
 });
 
 ipcMain.handle('save-capture', async (event, { folderPath, base64Data, index }) => {
     try { fs.writeFileSync(path.join(folderPath, `raw_${index}.jpg`), Buffer.from(base64Data.split(';base64,').pop(), 'base64')); return { success: true }; } 
     catch (err) { return { success: false, error: err.message }; }
+});
+
+// [BARU] Handler untuk menelan file video dari RAM React ke Disk fisik 
+ipcMain.handle('save-video', async (event, { folderPath, buffer }) => {
+    try {
+        fs.writeFileSync(path.join(folderPath, 'video_session.webm'), Buffer.from(buffer));
+        return { success: true };
+    } catch (err) { 
+        return { success: false, error: err.message }; 
+    }
 });
 
 ipcMain.handle('process-images', async (event, { photosBase64, templateId, eventFolder, eventId, customerName, price }) => {

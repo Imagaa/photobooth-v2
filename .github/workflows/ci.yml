@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    # Aplikasi ini menyasar Windows (kiosk photobooth), dan better-sqlite3
+    # dikompilasi untuk platform target — jadi CI harus berjalan di Windows
+    # agar sungguh-sungguh mewakili lingkungan produksi.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # postinstall menjalankan electron-rebuild yang memakan waktu lama;
+      # dijalankan terpisah agar kegagalannya mudah dibedakan dari kegagalan
+      # pemasangan paket biasa.
+      - name: Pasang dependency
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild modul native untuk Electron
+        run: npx electron-builder install-app-deps
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Uji logika murni
+        run: npm test
+
+      # better-sqlite3 memakai ABI Electron, sehingga uji database harus
+      # dijalankan lewat runtime Electron, bukan Node biasa.
+      - name: Uji database
+        run: npm run test:db
+
+      - name: Build
+        run: npm run build
+
+      # Kerentanan dependency produksi dilaporkan tetapi tidak menggagalkan CI:
+      # satu advisory transitif (brace-expansion lewat exceljs) sudah ditinjau
+      # dan terbukti tidak terjangkau. Lihat DOCUMENTATION.md Bagian 12.
+      - name: Audit dependency produksi
+        run: npm audit --omit=dev
+        continue-on-error: true

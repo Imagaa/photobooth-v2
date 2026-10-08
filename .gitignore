@@ -23,3 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Kredensial OAuth vendor — ditanam saat build, tidak boleh masuk repo
+electron/oauth-credentials.json
+
+# Hasil packaging
+release/
+
+# Potret dari daftar periksa manual (dihasilkan ulang, bukan sumber)
+tests/manual/potret/

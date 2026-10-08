@@ -1,4 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+﻿/* Font di-bundle, bukan diambil dari Google Fonts. Photobooth sering dipakai
+   di venue tanpa internet — dulu font gagal dimuat dan tata letak UI berubah.
+   Ini juga menghapus permintaan jaringan keluar dari renderer. */
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./assets/PressStart2P-Regular.ttf') format('truetype');
+}
 
 @tailwind base;
 @tailwind components;
@@ -45,8 +54,25 @@ body.theme-fall {
 
 /* ==========================================
    TRANSISI TEMA MULUS (SHIFTING 0.5s)
+
+   Aturan ini dulu berlaku permanen pada hampir semua elemen, sehingga setiap
+   hover dan setiap perubahan state memicu animasi 500ms pada box-shadow —
+   properti yang tidak di-composite GPU dan memaksa repaint. Di layar review
+   dengan puluhan kotak berbayang, itu penyebab utama UI terasa berat.
+
+   Sekarang transisi hanya aktif selama pergantian tema berlangsung: kelas
+   .theme-switching dipasang ~600ms oleh ThemeBinder lalu dilepas.
 ========================================== */
-body, div, p, h1, h2, h3, span, button, input, select {
+.theme-switching body,
+.theme-switching div,
+.theme-switching p,
+.theme-switching h1,
+.theme-switching h2,
+.theme-switching h3,
+.theme-switching span,
+.theme-switching button,
+.theme-switching input,
+.theme-switching select {
   transition-property: background-color, border-color, color, box-shadow;
   transition-duration: 0.5s;
   transition-timing-function: ease-in-out;
@@ -67,6 +93,25 @@ body {
     overscroll-behavior-y: none;
     user-select: none;
     background-color: var(--color-bg);
+
+    /* `manipulation` mematikan ketuk-ganda-untuk-zoom. Selain menjaga tata
+       letak kiosk tetap utuh, ini juga menghapus jeda ±300ms yang dipakai
+       Chromium untuk menunggu ketukan kedua — tanpa ini setiap tombol terasa
+       lamban satu tarikan napas. */
+    touch-action: manipulation;
+
+    /* Kotak sorot biru bawaan Android/Chromium saat elemen diketuk. Bahasa
+       visual di sini memakai bayangan offset dan translate; sorotan itu hanya
+       menambah kilatan warna yang tidak nyambung. */
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Area yang bisa digulir tidak boleh menyeret layar di belakangnya saat
+   gulirannya sudah mentok — di sentuhan, gerakan itu terasa seperti UI-nya
+   lepas. */
+.overflow-y-auto,
+.overflow-x-auto {
+    overscroll-behavior: contain;
 }
 
 .hide-scroll {
@@ -86,22 +131,9 @@ body {
 }
 
 @layer components {
-  .slot-box {
-    @apply absolute border-4 border-dashed bg-black/30 flex items-center justify-center font-bold text-3xl select-none cursor-move;
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-    /* Matikan animasi di slot agar Kiosk tidak lag saat drag & drop */
-    transition: none !important; 
-  }
-  .resize-handle {
-    @apply absolute -bottom-4 -right-4 w-12 h-12 bg-transparent cursor-se-resize flex items-center justify-center;
-    transition: none !important;
-  }
-  .resize-handle-inner {
-    @apply w-6 h-6 border-4 border-black pointer-events-none;
-    background-color: var(--color-secondary);
-    transition: none !important;
-  }
+  /* Kelas .slot-box / .resize-handle sudah dihapus: VisualEditor kini
+     menggambar kerangka slot dengan gaya inline karena ketebalan garis dan
+     ukuran pegangan harus dilawan-skalakan mengikuti zoom kanvas. */
   .editor-canvas-container {
     background-color: var(--color-primary);
     background-image: linear-gradient(45deg, rgba(0,0,0,0.15) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0.15)), linear-gradient(45deg, rgba(0,0,0,0.15) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.15) 75%, rgba(0,0,0,0.15));
@@ -109,3 +141,418 @@ body {
     background-position: 0 0, 10px 10px;
   }
 }
+
+/* ==========================================
+   SCENE BACKDROP - parallax pixel-art
+   ------------------------------------------
+   Semua gerakan di sini murni CSS. Gambarnya dari PixelLab, tapi tidak satu
+   pun generasi AI dipakai untuk membuat animasi - itu keputusan sadar, karena
+   anggaran 40 generasi tidak cukup kalau tiap gerakan dibuat AI.
+
+   SEMUA gambar dimuat lewat background-image, bukan <img src>. Halaman
+   produksi dimuat lewat file://, dan Vite hanya menulis ulang path aset yang
+   dirujuk dari CSS atau import JS. Path di bawah relatif ke src/index.css,
+   sama seperti @font-face di baris 9.
+
+   TINGGI LAYAR DIJANGAN DI-HARDCODE. Semua posisi dihitung dari --ground
+   dan tinggi strip, jadi tetap benar di layar sentuh 1280x720 maupun yang
+   lain.
+   ========================================== */
+.scene-root {
+  /* --ground = tinggi lempeng tanah di dasar hills.png.`n     hills.png 400x110 dengan lempeng 28px di bawah; strip dirender 220px,`n     jadi lempengnya 56px. Kaki karakter dan blok berdiri tepat di sini. */
+  --ground: 56px;
+  /* Kaki sprite berada 14px di atas dasar sel 92px; diskalakan 2x jadi 28px. */
+  --foot: 28px;
+  /* --lift: menaikkan karakter agar kaki mereka tepat di puncak baris semak.
+     Semak ada di lapisan paling depan dan tumbuh 18px di atas permukaan
+     tanah, sehingga tanpa lift kaki karakter tertelan seluruhnya. */
+  --lift: 18px;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.scene-layer { position: absolute; left: 0; right: 0; }
+
+/* --- Langit ---------------------------------------------------------
+   TIDAK memakai gambar. Dua alasan:
+
+   1. Aset langit dari PixelLab keluar sebagai pita vertikal sempit di tengah
+      kanvas dengan area kosong di kiri dan kanan — tidak bisa dipakai sebagai
+      latar full-bleed tanpa Peregangan horizontal yang membuat awanTERNAL
+     terlebur.
+   2. Langit pada pixel art 16-bit memang hanya gradien berbanding. Membuatnya
+      dengan CSS justru lebih tajam, gratis, dan ikut menyesuaikan tinggi
+      layar tanpa perlu regenerate.
+
+   Setiap warna diulang dua kali (mis. 0% lalu 0%) supaya tidak ada
+   interpolasi: browser tidak bisa menginterpolasi antar warna, hasilnya pita
+   keras yang terbaca sebagai dithering 16-bit. */
+.scene-sky {
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    #1f5fbf 0%,   #1f5fbf 12%,
+    #2f77d0 12%,  #2f77d0 24%,
+    #4690dd 24%,  #4690dd 36%,
+    #63a8e6 36%,  #63a8e6 47%,
+    #86c0ea 47%,  #86c0ea 56%,
+    #a9d6ec 56%,  #a9d6ec 63%,
+    #cbe6ee 63%,  #cbe6ee 70%,
+    #e6fdf4 70%,  #e6fdf4 100%
+  );}
+
+/* --- Strip parallax -------------------------------------------------
+   STRUKTUR: satu elemen selebar viewport (plus satu lebar tile di kanan
+   supaya tidak ada celah saat bergeser), dengan repeat-x. Animasi
+   menggeser TEPAT satu lebar tile.
+
+   Versi sebelumnya memakai .scene-strip 200% berisi dua anak .scene-scroll
+   yang digeser -50%. Itu salah: setiap anak memutar ulang fase background-nya
+   dari kolom nol di tepi kirinya sendiri, sehingga di sambungan kedua anak
+   fase melompat mundur sebesar lebar tile mod 50% elemen. Akibatnya bukit
+   dan semak terlihat "berhenti" lalu mulai lagi - bukan sambungan mulus.
+
+   Menggeser tepat satu periode tile membuat polanya berputar seperti
+   pita berjalan: tidak ada sambungan sama sekali. */
+
+.scene-strip {
+  position: absolute;
+  left: 0;
+  /* Satu tile lebih lebar dari viewport, supaya menggeser ke kiri tidak
+     pernah menyisakan ruang kosong di tepi kanan. */
+  right: calc(-1 * var(--tile-w));
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  background-size: var(--tile-w) 100%;
+  animation: scene-scroll var(--dur, 60s) linear infinite;
+  will-change: transform;
+}
+
+@keyframes scene-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-1 * var(--tile-w))); }
+}
+
+/* Bukit + tanah, di belakang segalanya. Sifatnya "lantai": menempel ke dasar
+   layar. --tile-w = 220 x (799/110) = 1598px, mengikuti proporsi gambar
+   hills.png persis supaya tidak ada distorsi. */
+.scene-strip-bukit {
+  --tile-w: 1598px;
+  bottom: 0;
+  height: 220px;
+  background-image: url('./assets/scene/hills.png');
+}
+
+/* Semak: lapisan paling depan, dirender terakhir di DOM (lihat
+   SceneBackdrop.jsx) sehingga menutupi bukit, blok tanya, monkey, dan
+   kepiting. Efeknya karakter terlihat berjalan DI BELAKANG pagar.
+
+   bottom negatif menusukkan semak melewati tepi bawah layar supaya tertanam
+   lebih dalam, bukan sekadar menempel. --tile-w tetap mengikuti TINGGI strip
+   (510 x 88/80 = 561px) dan tidak terpengaruh pergeseran bottom.
+
+   bushes.png sengaja digandakan dua kali (510px) supaya pola semak tidak
+   berulang terlalu sering - pada 255px, bentuk yang sama muncul ~5 kali
+   dalam satu layar dan langsung terbaca sebagai pola, bukan vegetasi. */
+.scene-strip-semak {
+  --tile-w: 561px;
+  bottom: -14px;
+  height: 88px;
+  background-image: url('./assets/scene/bushes.png');
+}
+
+/* --- Awan ------------------------------------------------------------
+   Melintas horizontal lalu muncul lagi di sisi lain. Dua awan punya durasi
+   dan tinggi berbeda supaya tidak terlihat bergerak berpasangan. --- */
+.scene-cloud {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+
+.scene-cloud-a {
+  width: 190px;
+  height: 100px;
+  top: 5%;
+  background-image: url('./assets/scene/cloud-a.png');
+  animation: scene-drift-a 46s linear infinite;
+}
+
+.scene-cloud-b {
+  width: 250px;
+  height: 110px;
+  top: 15%;
+  background-image: url('./assets/scene/cloud-b.png');
+  animation: scene-drift-b 71s linear infinite -38s;
+}
+
+@keyframes scene-drift-a {
+  0%   { transform: translateX(-30vw); }
+  100% { transform: translateX(108vw); }
+}
+
+@keyframes scene-drift-b {
+  0%   { transform: translateX(108vw); }
+  100% { transform: translateX(-30vw); }
+}
+
+/* --- Matahari: denyut lembut, tidak menyilaukan. --- */
+.scene-sun {
+  position: absolute;
+  right: 7%;
+  top: 5%;
+  width: 130px;
+  height: 130px;
+  background-image: url('./assets/scene/sun.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  animation: scene-pulse 7s ease-in-out infinite;
+}
+
+@keyframes scene-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+/* --- Burung: naik-turun ringan sambil melintas. --- */
+.scene-bird {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background-image: url('./assets/scene/bird.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+
+.scene-bird-a { top: 14%; animation: scene-bird-a 38s linear infinite; }
+.scene-bird-b { top: 27%; animation: scene-bird-b 53s linear infinite; }
+
+@keyframes scene-bird-a {
+  0%   { transform: translate(0, 0); }
+  50%  { transform: translate(38vw, -22px); }
+  100% { transform: translate(76vw, 4px); }
+}
+
+@keyframes scene-bird-b {
+  0%   { transform: translate(80vw, 0); }
+  50%  { transform: translate(40vw, -16px); }
+  100% { transform: translate(0, 6px); }
+}
+
+/* --- Blok tanya: berdiri di garis tanah, bob naik-turun ringan. --- */
+.scene-blocks { position: absolute; inset: 0; }
+
+.scene-block {
+  position: absolute;
+  /* Mengambang DI ATAS kepala monyet, bukan berdiri di tanah.
+
+     Angka ini diturunkan, bukan dikira-kira: monkey berdiri di
+     calc(--ground - --foot) = 28px dengan tinggi 184px, jadi puncak
+     kepalanya ada di 212px dari dasar. Blok setinggi 56px diletakkan dengan
+     dasar di 216px — 4px di atas puncak kepala itu. Menggeser angka ini
+     tanpa menghitung ulang --foot akan menempatkan blok tepat di kepala
+     monyet. */
+  bottom: calc(var(--ground) + 160px + var(--lift));
+  width: 56px;
+  height: 56px;
+  background-image: url('./assets/scene/block.png');
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  animation: scene-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes scene-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+/* --- Karakter monkey SayGumi ------------------------------------------
+   Sprite sheet dari PixelLab: sel 92x92px, baris "lari" 8 frame dan baris
+   "lompat" 9 frame (monkey-run.png & monkey-jump.png).
+
+   steps() membuat frame berganti DISKRET seperti animasi 16-bit, bukan
+   diinterpolasi seperti video - itu yang membuatnya tetap terbaca sebagai
+   pixel art saat di-upscale.
+
+   Semua ukuran dikalikan 2 (92 -> 184). Perkalian bulat menjaga tepi piksel
+   tetap rata; skala pecahan seperti 1.5x membuat garis 1px bergeser dan tepi
+   pixel terlihat pecah. background-position pada keyframes memakai piksel CSS
+   yang sudah diskalakan, karena background-size ikut diskalakan.
+
+   Sprite punya padding transparan di sekeliling sel, jadi dikoreksi
+   dikurangi seperempat tinggi agar kaki menyentuh garis tanah. --- */
+.scene-monkey-wrap {
+  position: absolute;
+  left: 18%;
+  bottom: calc(var(--ground) - var(--foot) + var(--lift));
+  width: 184px;
+  height: 184px;
+}
+
+.scene-monkey {
+  position: absolute;
+  inset: 0;
+  background-image: url('./assets/scene/monkey-run.png');
+  background-repeat: no-repeat;
+  background-size: 1472px 184px;
+  image-rendering: pixelated;
+  /* Jendela opacity berlawan dengan sheet lompat dan diam. Tanpa ini ketiga
+     lapisan superimpose Saling terlihat dan monkey tampak ganda saat
+     lompatan atau sheet diam muncul. */
+  animation:
+    scene-run 0.9s steps(8) infinite,
+    scene-run-window 7s steps(1, end) infinite;
+}
+
+@keyframes scene-run {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1472px; }
+}
+
+@keyframes scene-run-window {
+  0%, 45%   { opacity: 1; }
+  46%, 58%  { opacity: 0; }
+  59%, 69%  { opacity: 1; }
+  70%, 80%  { opacity: 0; }
+  81%, 100% { opacity: 1; }
+}
+
+/* Lompat dan diam disuperimpose di atas sprite lari, bukan
+   menggantikannya. Sheet "lari" tetap jadi lapisan dasar sehingga tidak ada
+   frame kosong pada saat jendela lain aktif.
+
+   Satu siklus 7 detik berisi empat perilaku, tidak satu pun boros generasi:
+     0-45%   lari
+     46-58%  berhenti, bernapas (sheet "diam", 4 frame)
+     59-69%  lari lagi
+     70-80%  melompat (sheet "lompat", 9 frame)
+     81-100% lari lagi
+
+   Ketiganya memakai langkah waktu yang sama agar perilakunya coheren, bukan
+   tiga animasi yang kebetulan bertumpuk. steps(1, end) membuat perpindahan
+   window terjadi instan seperti bingkai animasi 16-bit, bukan memudar. */
+.scene-monkey-jump {
+  background-image: url('./assets/scene/monkey-jump.png');
+  background-size: 1656px 184px; /* 9 x 92px, diskalakan 2x */
+  animation:
+    scene-jump-frames 0.9s steps(9) infinite,
+    scene-jump-window 7s steps(1, end) infinite;
+}
+
+@keyframes scene-jump-frames {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1656px; }
+}
+
+.scene-monkey-idle {
+  background-image: url('./assets/scene/monkey-idle.png');
+  background-size: 736px 184px; /* 4 x 92px, diskalakan 2x */
+  animation:
+    scene-idle-frames 1.2s steps(4) infinite,
+    scene-idle-window 7s steps(1, end) infinite;
+}
+
+@keyframes scene-idle-frames {
+  from { background-position-x: 0; }
+  to   { background-position-x: -736px; }
+}
+
+@keyframes scene-jump-window {
+  0%, 69%   { opacity: 0; }
+  70%, 80%  { opacity: 1; }
+  81%, 100% { opacity: 0; }
+}
+
+@keyframes scene-idle-window {
+  0%, 45%   { opacity: 0; }
+  46%, 58%  { opacity: 1; }
+  59%, 100% { opacity: 0; }
+}
+
+/* --- Kepiting: karakter kedua yang menyeberangi layar ---------------
+   Sprite sheet: 6 frame jalan, arah timur. Diputar scaleX(-1) supaya
+   berjalan ke KIRI, berlawanan arah dengan monkey — dua arah gerak berlawanan
+   itulah yang membuat layered hidup terasa, bukan dua orang berjalan
+   searah.
+
+   Sheet 6 x 92px diskalakan 2x = 1104 x 184px. Padding bawah sprite 10px per
+   sel, jadi --foot kepiting 20px (setelah dikali 2). --foot monkey 28px.
+
+   Opacity 0 di awal dan akhir siklus menyembunyikan lompatan posisi saat
+   kepiting muncul kembali di sisi kanan — tanpa itu, layar akan berkedip
+   setiap 26 detik. steps(1, end) membuat pergantian itu instan. */
+.scene-crab-wrap {
+  position: absolute;
+  left: 100%;
+  /* Kaki sprite berada 1px di atas dasar sel (sel 37px), diskalakan 2x jadi
+     2px. Elemen HARUS 184x74: memakai 184x184 hanya memotong separuh atas
+     sel dan kepiting nyaris tak terlihat.
+
+     Sheet hasil potong hanya memuat kepiting ATAS. Asli dari PixelLab
+     memuat dua kepiting per sel — yang bawah cermin dan terbalik — karena
+     template "walking" gagal pada sprite ini. Baris bawah beserta "tangkai"
+     penghubungnya dipotong; lihat src/assets/scene/README.md. */
+  /* TIDAK memakai --lift. Rumus aslinya sudah menghitung padding kaki
+     sprite kepiting (10px per sel, 20px setelah diskalakan 2x), sehingga
+     kakinya sudah tepat di puncak baris semak. Menambah --lift di sini
+     justru mengangkatnya 18px dan membuatnya melayang. */
+  bottom: calc(var(--ground) - 2px);
+  width: 184px;
+  height: 74px;
+  background-image: url('./assets/scene/crab-walk.png');
+  background-repeat: no-repeat;
+  background-size: 1104px 74px;
+  image-rendering: pixelated;
+  /* Delay -13s (setengah siklus) supaya kepiting sudah berada di tengah layar
+     saat halaman dibuka. Tanpa itu, layar awal tampak kosong selama ~2 detik
+     dan kepiting baru masuk lewat tepi kanan. Siklus frame TIDAK diberi delay
+     supaya kaki tetap jalan normal sejak frame pertama. */
+  animation:
+    scene-crab-cross 26s linear -13s infinite,
+    scene-crab-frames 0.8s steps(6) infinite;
+}
+
+@keyframes scene-crab-frames {
+  from { background-position-x: 0; }
+  to   { background-position-x: -1104px; }
+}
+
+@keyframes scene-crab-cross {
+  0%   { transform: translateX(0) scaleX(-1); opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { transform: translateX(-125vw) scaleX(-1); opacity: 0; }
+}
+
+/* --- Kabut tipis di paling depan: transisi menuju tombol MULAI tidak
+       terasa tajam, dan kontras teks di atasnya sedikit turun. Sengaja
+       ringan - versi 0.45 membuat tepi layar menghitam. --- */
+.scene-haze {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 55%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

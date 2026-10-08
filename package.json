@@ -1,30 +1,38 @@
 {
   "name": "photobooth-v2",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Aplikasi kiosk photobooth self-service untuk acara",
+  "author": "SayGumi",
   "type": "commonjs",
   "main": "electron/main.js",
   "scripts": {
-    "postinstall": "electron-rebuild",
-    "dev": "concurrently -k \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+    "postinstall": "electron-builder install-app-deps",
+    "dev": "node scripts/dev.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint electron src tests",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db": "cross-env ELECTRON_RUN_AS_NODE=1 electron tests/db/run.js",
+    "test:all": "npm run test && npm run test:db",
+    "test:app": "npm run build && node tests/manual/run.js",
+    "verify": "npm run lint && npm run test:all && npm run build",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
-    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "midtrans-client": "^1.4.3",
     "qrcode": "^1.5.4",
-    "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "sharp": "^0.34.5",
-    "xlsx": "^0.18.5",
+    "sharp": "^0.35.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.3",
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -33,6 +41,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^41.2.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -40,6 +49,13 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.19",
     "vite": "^8.0.4",
+    "vitest": "^4.1.10",
     "wait-on": "^9.0.5"
+  },
+  "overrides": {
+    "exceljs": {
+      "brace-expansion": "^5.0.8",
+      "uuid": "^11.1.1"
+    }
   }
 }

@@ -1,5 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Efek hover hanya dipasang pada perangkat yang benar-benar punya penunjuk.
+  // Di layar sentuh murni, Chromium menyalakan :hover saat diketuk lalu
+  // MENAHANNYA sampai ada ketukan di tempat lain — tombol jadi terlihat
+  // tertekan permanen.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

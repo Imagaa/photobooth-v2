@@ -1,0 +1,78 @@
+# =========================================================================
+# KONFIGURASI PACKAGING
+#
+# Menghasilkan installer Windows untuk mesin photobooth.
+#
+# Dua hal yang paling mudah membuat hasil build rusak pada aplikasi ini:
+#
+# 1. MODUL NATIVE. `better-sqlite3` dan `sharp` memuat berkas biner .node yang
+#    tidak dapat dibaca dari dalam arsip asar. Keduanya harus di-unpack, kalau
+#    tidak aplikasi mati saat startup dengan galat "cannot open .node file".
+#
+# 2. KREDENSIAL OAUTH. `electron/oauth-credentials.json` ada di .gitignore
+#    tetapi WAJIB ikut terbundel — tanpanya klien harus membuka Google Cloud
+#    Console sendiri, yang justru ingin kita hindari.
+# =========================================================================
+
+appId: com.saygumi.photobooth
+productName: SayGumi Photobooth
+copyright: SayGumi Photobooth
+
+directories:
+  output: release
+  buildResources: build
+
+# Hanya yang benar-benar dibutuhkan runtime. Kode sumber renderer (src/),
+# berkas uji, dan konfigurasi pengembangan tidak ikut.
+files:
+  - electron/**/*
+  - dist/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/*.md'
+  # Alat bantu pengembangan (tools/scene-shot.js) menulis screenshot dan HTML
+  # sementara ke dist/. Tanpa baris ini, `npm run pack` setelah memakai alat
+  # bantu itu akan membundel screenshot berukuran ratusan KB ke installer.
+  - '!dist/_*'
+
+asar: true
+
+# Berkas di bawah ini dibaca sebagai berkas nyata di disk, bukan lewat lapisan
+# asar, sehingga harus berada di luar arsip.
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/node_modules/sharp/**'
+  - '**/node_modules/@img/**'
+  # Font dilayani ke HP kasir lewat express.static; streaming dari asar
+  # tidak selalu andal, jadi lebih aman di-unpack.
+  - electron/assets/**
+
+# Modul native dibangun ulang untuk ABI Electron target.
+npmRebuild: true
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.png
+  # Belum ada code signing. Windows SmartScreen akan menampilkan peringatan
+  # "Unknown publisher" pada pemasangan pertama sampai sertifikat dipasang.
+  signAndEditExecutable: true
+
+nsis:
+  # Kiosk photobooth biasanya dipasang teknisi, bukan pengguna akhir — jadi
+  # installer diberi pilihan lokasi, bukan sekali-klik.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SayGumi Photobooth
+  # Data pengguna (database, template, hasil foto) TIDAK ikut dihapus saat
+  # uninstall — menghapusnya berarti menghilangkan riwayat transaksi operator.
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: SayGumi-Photobooth-${version}-portable.exe
